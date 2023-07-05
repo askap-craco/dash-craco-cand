@@ -3,12 +3,16 @@ import dash_bootstrap_components as dbc
 from dash_iconify import DashIconify
 import dash_mantine_components as dmc
 
+import matplotlib.pyplot as plt
+
 import numpy as np
 import pandas as pd
 
 import os
 import json
 import sqlite3
+from io import BytesIO
+import base64
 
 # load password pairs
 def load_password(fname):
@@ -188,3 +192,19 @@ def load_candidate(fname):
     ].astype(int)
 
     return cand_df
+
+def fig_to_uri(in_fig, close_all=True, **save_args):
+    # type: (plt.Figure) -> str
+    """
+    Save a figure as a URI
+    :param in_fig:
+    :return:
+    """
+    out_img = BytesIO()
+    in_fig.savefig(out_img, format='png', **save_args)
+    if close_all:
+        in_fig.clf()
+        plt.close('all')
+    out_img.seek(0)  # rewind file
+    encoded = base64.b64encode(out_img.read()).decode("ascii").replace("\n", "")
+    return "data:image/png;base64,{}".format(encoded)

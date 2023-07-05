@@ -18,6 +18,10 @@ import astropy.units as units
 from astroquery.vizier import Vizier
 from astroquery.simbad import Simbad
 
+from apputil import fig_to_uri
+
+from craco import craco_candidate
+
 dash.register_page(__name__, path="/candidate", title="CRACO candidate Plotter")
 
 ### functions
@@ -31,7 +35,7 @@ def update_cand_query_strings(cand_query_strings):
     cand_query_strings = eval(cand_query_strings)
     ### set some default value in cand_query_strings
     default_values = {
-        "sbid": None, "beam": None, "scan": "00", "tstart": None,
+        "sbid": "000000", "beam": "99", "scan": "00", "tstart": None,
         "results": "results", "dm": None,
         "lpix": None, "mpix": None, "boxcwidth": None,
         "totalsample": None, "ra": None, "dec": None,
@@ -216,7 +220,7 @@ def _match_simbad(candcoord):
     return pd.DataFrame({"MAIN_ID":[], "RA": [], "DEC": [], "sep": []})
 
 def _atnf_psrcat_url(ra, dec, radius=0.01):
-    return f"https://www.atnf.csiro.au/research/pulsar/psrcat/proc_form.php?version=1.70&Name=Name&P0=P0&DM=DM&W50=W50&S400=S400&S1400=S1400&startUserDefined=true&c1_val=&c2_val=&c3_val=&c4_val=&sort_attr=jname&sort_order=asc&condition=&pulsar_names=&ephemeris=short&coords_unit=rajd%2Fdecjd&radius={radius}&coords_1={ra}&coords_2={dec}&raddist=raddist&style=Long+with+last+digit+error&no_value=*&fsize=3&x_axis=&x_scale=linear&y_axis=&y_scale=linear&state=query&table_bottom.x=66&table_bottom.y=13"
+    return f"https://www.atnf.csiro.au/research/pulsar/psrcat/proc_form.php?version=1.70&Jname=Jname&Name=Name&P0=P0&DM=DM&W50=W50&S400=S400&S1400=S1400&startUserDefined=true&c1_val=&c2_val=&c3_val=&c4_val=&sort_attr=jname&sort_order=asc&condition=&pulsar_names=&ephemeris=short&coords_unit=rajd%2Fdecjd&radius={radius}&coords_1={ra}&coords_2={dec}&raddist=raddist&style=Long+with+last+digit+error&no_value=*&fsize=3&x_axis=&x_scale=linear&y_axis=&y_scale=linear&state=query&table_bottom.x=66&table_bottom.y=13"
 
 def _vizier_url(candcoord):
     pass
@@ -276,6 +280,136 @@ def candidate_cross_info(cand_query_strings):
         dbc.Row(html.P(["For HIPS MAP: ", dcc.Link("RACS HIPS MAP", href="https://www.atnf.csiro.au/research/RACS/CRACSlow1_I2/", target="_blank")])),
         dbc.Row(simbtn), dbc.Row(simtab),
     ])
+
+def _pltfig2img(fig, **extra_param):
+    return html.Img(
+        src=fig_to_uri(fig), **extra_param,
+    )
+
+# craco candidate related plotting
+@callback(
+    Output("craco_candidate_filterbank", "children"),
+    # Output("cand_filterbank_store", "data"),
+    Output("craco_cand_plot_status", "children"),
+    Input("craco_cand_plot_btn", "n_clicks"),
+    State("cand_query_strings", "data"),
+    prevent_initial_call=True
+)
+def craco_cand_plot(nclick, cand_query_strings):
+    cand_query_dict = eval(cand_query_strings)
+    try:
+        crow = {
+            "ra_deg": float(cand_query_dict["ra"]), "dec_deg": float(cand_query_dict["dec"]),
+            "dm_pccm3": float(cand_query_dict["dm"]), "total_sample": int(cand_query_dict["totalsample"]),
+            "boxc_width": int(cand_query_dict["boxcwidth"]), 
+            "lpix": int(cand_query_dict["lpix"]), "mpix": int(cand_query_dict["mpix"])
+        }
+    except:
+        return None, "Not enough info..."
+
+    cand = craco_candidate.Candidate(
+        crow = crow,
+        uvsource = cand_query_dict["uvfitspath"],
+        calibration_file = cand_query_dict["calpath"],
+        workdir="./test", padding=100
+    )
+    cand.search_output["obstime_sec"] = cand.search_output["total_sample"] * cand.tsamp
+
+    ### make filterbank, image
+    cand._calibrate_data(cand.calibration_file)
+    cand._rotate_vis()
+    cand._normalise_vis()
+    cand._normalise_vis(target=False)
+    cand._load_burst_filterbank()
+    # for images
+    cand._dedisperse_block(dm=cand.search_output["dm_pccm3"])
+    cand._grid_image_data()
+
+    ### filterbank related plot
+    fig, ax = cand.plot_filterbank(dm=0)
+    filterbank_zerodm = dbc.Col([
+        _pltfig2img(fig, style={"width": "100%"})
+        ], width=4
+    )
+
+    fig, ax = cand.plot_filterbank(dm=cand.search_output["dm_pccm3"], keepnan=False)
+    filterbank_searchdm = dbc.Col([
+        _pltfig2img(fig, style={"width": "100%"}), 
+        ], width=4
+    )
+
+    fig, ax = cand.plot_dmt()
+    filterbank_butterfly = dbc.Col([
+        _pltfig2img(fig, style={"width": "100%"}), 
+        ], width=4
+    )
+
+    # interactive filterbank plot
+    filterbank_plot, trange_ = cand._dedisperse2tf(dm=cand.search_output["dm_pccm3"], keepnan=False)
+    taxis = np.linspace(*trange_, filterbank_plot.shape[1]) * cand.tsamp
+    faxis = np.linspace(cand.freqs[0]/1e6, cand.freqs[-1]/1e6, filterbank_plot.shape[0])
+
+    # print()
+
+    heatmapfig = dbc.Col(html.Div(dcc.Graph(
+        figure= px.imshow(
+            filterbank_plot, x=taxis, y=faxis, aspect="auto"
+        ),
+        id="cand_filterbank_interactive", 
+    )), width=6)
+
+    pixelmax = np.round(filterbank_plot.max(), 2) 
+    pixelmin = np.round(filterbank_plot.min(), 2)
+    pixelrange = np.round((pixelmax - pixelmin), 2)
+
+    colorscale=dbc.Col(dbc.Row([
+        dbc.Row(dbc.Button("Mannual Color Scale Disabled", id="cand_filterbank_cscale_btn", color="danger", n_clicks=0), style={"margin": "10px"}),
+        dbc.Row(dcc.RangeSlider(
+            pixelmin - 0.5*pixelrange, pixelmax + 0.5*pixelrange,
+            value=[pixelmin, pixelmax], id="cand_filterbank_slider",
+            tooltip={"placement": "bottom", "always_visible": True}
+        ))
+    ], align="center", className="h-100"), width=6)
+
+    os.system("rm uv_data.*.txt")
+
+    return (
+        dbc.Container([
+            dbc.Row(html.P("Filterbank Plots")),
+            dbc.Row([filterbank_zerodm, filterbank_searchdm, filterbank_butterfly]),
+            dbc.Row([heatmapfig, colorscale])
+        ]), # this corresponding to filterbank plots
+        
+        "done..."
+    )
+
+# callback to enable mannual color scales
+@callback(
+    Output("cand_filterbank_interactive", "figure"),
+    Output("cand_filterbank_cscale_btn", "color"),
+    State("cand_filterbank_interactive", "figure"),
+    Input("cand_filterbank_cscale_btn", "n_clicks"),
+    Input("cand_filterbank_slider", "value"),
+)
+def rescale_filterbank(heatmapfig, nclicks, slidervalue):
+    ### update color
+    if nclicks == 0: raise PreventUpdate()
+    if nclicks % 2 == 0: 
+        color="danger"
+        if ctx.triggered_id != "cand_filterbank_cscale_btn": 
+            raise PreventUpdate()
+        heatmapfig["layout"]["coloraxis"].update(dict(cauto=True))
+    else: 
+        color="success"
+        heatmapfig["layout"]["coloraxis"].update(dict(
+            cauto=False, cmax=slidervalue[-1], cmin=slidervalue[0]
+        ))
+
+    return heatmapfig, color
+
+
+    
+
 ### layouts
 
 
@@ -286,6 +420,7 @@ def layout(**cand_query_strings):
     return html.Div([
         dcc.Location(id="cand_url", refresh=False),
         dcc.Store(id="cand_query_strings", data=cand_query_strings.__str__()),
+        dcc.Store(id="cand_filterbank_store"), # make this available later perhaps
         dbc.Container(dbc.Col([
             dbc.Row([
                 html.H5("Candidate Pipeline Information")
@@ -299,6 +434,12 @@ def layout(**cand_query_strings):
             dbc.Row([
                 dbc.Col(html.Div(id="cand_cross_table_div"), width=12), # cross check from PSRCAT, RACS, SIMBAD
             ]),
+            dbc.Row([
+                dbc.Col(html.H5("Candidate CRACO Data"), width=3),
+                dbc.Col(dbc.Button("Process", id="craco_cand_plot_btn", color="success"), width=3),
+                dbc.Col(dcc.Loading(id="craco_cand_plot_status", fullscreen=False)),
+            ]),
+            dbc.Row(id="craco_candidate_filterbank"),
         ])),
         dbc.Container(dbc.Row([
             html.Div(id="cand_test_div"),
