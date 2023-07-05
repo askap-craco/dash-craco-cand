@@ -9,6 +9,7 @@ import os
 import glob
 
 import plotly.express as px
+import plotly.graph_objects as go
 
 import pandas as pd
 import numpy as np
@@ -75,12 +76,30 @@ def update_cand_query_strings(cand_query_strings):
         cand_query_strings["sbid"], int(cand_query_strings["beam"]), int(cand_query_strings["beam"]),
     )
 
+    if cand_query_strings["tstart"] is not None:
+        cand_clust_path = "/data/seren-{:0>2}/big/craco/SB{:0>6}/scans/{}/{}/{}/clustering_output/candidates.txtb{}.uniq".format(
+            int(cand_query_strings["beam"]) % 10 + 1, cand_query_strings["sbid"],
+            cand_query_strings["scan"], cand_query_strings["tstart"],
+            cand_query_strings["results"], int(cand_query_strings["beam"])
+        )
+    else:
+        cand_clust_pattern =  "/data/seren-{:0>2}/big/craco/SB{:0>6}/scans/{}/*/{}/clustering_output/candidates.txtb{}.uniq".format(
+            int(cand_query_strings["beam"]) % 10 + 1, cand_query_strings["sbid"], cand_query_strings["scan"], 
+            cand_query_strings["results"], int(cand_query_strings["beam"])
+        )
+        cand_clust_paths = glob.glob(cand_clust_pattern)
+        cand_clust_path = cand_clust_paths[0] if cand_clust_paths else None
+
     if cand_uvfits_path: 
         if not os.path.exists(cand_uvfits_path): cand_uvfits_path = None
     cand_query_strings["uvfitspath"] = cand_uvfits_path
 
     if not os.path.exists(cand_cal_path): cand_cal_path = None
     cand_query_strings["calpath"] = cand_cal_path
+
+    if cand_clust_path:
+        if not os.path.exists(cand_clust_path): cand_clust_path = None
+    cand_query_strings["clustpath"] = cand_clust_path
 
     print(cand_query_strings)
 
@@ -289,6 +308,7 @@ def _pltfig2img(fig, **extra_param):
 # craco candidate related plotting
 @callback(
     Output("craco_candidate_filterbank", "children"),
+    Output("craco_candidate_images", "children"),
     # Output("cand_filterbank_store", "data"),
     Output("craco_cand_plot_status", "children"),
     Input("craco_cand_plot_btn", "n_clicks"),
@@ -307,11 +327,13 @@ def craco_cand_plot(nclick, cand_query_strings):
     except:
         return None, "Not enough info..."
 
+    padding = 100
+
     cand = craco_candidate.Candidate(
         crow = crow,
         uvsource = cand_query_dict["uvfitspath"],
         calibration_file = cand_query_dict["calpath"],
-        workdir="./test", padding=100
+        workdir="./test", padding=padding
     )
     cand.search_output["obstime_sec"] = cand.search_output["total_sample"] * cand.tsamp
 
@@ -328,19 +350,22 @@ def craco_cand_plot(nclick, cand_query_strings):
     ### filterbank related plot
     fig, ax = cand.plot_filterbank(dm=0)
     filterbank_zerodm = dbc.Col([
-        _pltfig2img(fig, style={"width": "100%"})
+        dbc.Row("dedispered at DM=0", justify="center"),
+        dbc.Row(_pltfig2img(fig, style={"width": "100%"})),
         ], width=4
     )
 
     fig, ax = cand.plot_filterbank(dm=cand.search_output["dm_pccm3"], keepnan=False)
     filterbank_searchdm = dbc.Col([
-        _pltfig2img(fig, style={"width": "100%"}), 
+        dbc.Row("dedispered at DM={:.2f}".format(cand.search_output["dm_pccm3"]), justify="center"),
+        dbc.Row(_pltfig2img(fig, style={"width": "100%"})), 
         ], width=4
     )
 
     fig, ax = cand.plot_dmt()
     filterbank_butterfly = dbc.Col([
-        _pltfig2img(fig, style={"width": "100%"}), 
+        dbc.Row("butterfly plot", justify="center"),
+        dbc.Row(_pltfig2img(fig, style={"width": "100%"})), 
         ], width=4
     )
 
@@ -356,30 +381,98 @@ def craco_cand_plot(nclick, cand_query_strings):
             filterbank_plot, x=taxis, y=faxis, aspect="auto"
         ),
         id="cand_filterbank_interactive", 
-    )), width=6)
+    )), width=6, className="h-100")
+
+    # lightcurve
+    lcfig = go.Figure()
+    lcfig.add_traces([
+        go.Scatter(x=taxis, y=filterbank_plot.mean(axis=0), name="mean"),
+        go.Scatter(x=taxis, y=filterbank_plot.max(axis=0), name="max"),
+        go.Scatter(x=taxis, y=filterbank_plot.min(axis=0), name="min"),
+    ])
+    burstlcfig = dbc.Col(html.Div(dcc.Graph(
+        figure=lcfig, id="cand_filterbank_interlc", responsive=True
+    )))
 
     pixelmax = np.round(filterbank_plot.max(), 2) 
     pixelmin = np.round(filterbank_plot.min(), 2)
     pixelrange = np.round((pixelmax - pixelmin), 2)
 
-    colorscale=dbc.Col(dbc.Row([
-        dbc.Row(dbc.Button("Mannual Color Scale Disabled", id="cand_filterbank_cscale_btn", color="danger", n_clicks=0), style={"margin": "10px"}),
+    burstlcdiv=dbc.Col(dbc.Row([
+        dbc.Row(burstlcfig),
+    ], align="center", className="h-100"), width=6)
+
+    colorscale = dbc.Col([
+        dbc.Row(dbc.Button(
+            "Mannual Color Scale Disabled", id="cand_filterbank_cscale_btn", color="danger", n_clicks=0
+        ), style={"margin": "10px"}, justify="center",),
         dbc.Row(dcc.RangeSlider(
             pixelmin - 0.5*pixelrange, pixelmax + 0.5*pixelrange,
             value=[pixelmin, pixelmax], id="cand_filterbank_slider",
             tooltip={"placement": "bottom", "always_visible": True}
-        ))
-    ], align="center", className="h-100"), width=6)
+        ), justify="center")
+    ], width=4)
+
+    ######### for images
+    ### dignostic plots => median and standard deviation
+    fig = cand._make_field_image(save=False)
+    imgdigplot = dbc.Row([
+        _pltfig2img(fig, style={"width": "100%"}),
+    ])
+
+    ### make interactive snr image, and interactive zoom image
+    fig = px.imshow(
+        cand.imgcube.std(axis=0), origin='lower',
+    )
+    snrfig = dbc.Col([
+        dbc.Row("std image", justify="center"),
+        dbc.Row(html.Div(dcc.Graph(figure=fig, ))),
+    ], width=4)
+
+    # work out the limits during the detection...
+    # detection is through imgidx_s to imgidx_e
+    _dets = cand.search_output["total_sample"]
+    _viss = cand.visrange[0]
+
+    imgidx_e = _dets - _viss + 1
+    imgidx_s = imgidx_e - cand.search_output["boxc_width"]
+    ## detections are ...
+    img_detected = cand.imgcube[imgidx_s:imgidx_e + 1]
+    imagestd = cand.imgcube.std()
+
+    fig = px.imshow(
+        cand.imgzoomcube, animation_frame=0, 
+        zmax=imagestd * 8, zmin=-imagestd,
+        origin="lower",
+    )
+    zoomfig = dbc.Col([
+        dbc.Row("zoom-in images", justify="center"),
+        dbc.Row(html.Div(dcc.Graph(figure=fig, ))),
+    ], width=4)
+
+    fig = px.imshow(
+        img_detected.mean(axis=0), # take the mean image over detected period
+        origin="lower",
+    )
+    detectfig = dbc.Col([
+        dbc.Row("detection image", justify="center"),
+        dbc.Row(html.Div(dcc.Graph(figure=fig, ))),
+    ], width=4)
 
     os.system("rm uv_data.*.txt")
 
     return (
         dbc.Container([
-            dbc.Row(html.P("Filterbank Plots")),
+            dbc.Row(html.P(html.B("Filterbank Plots"))),
             dbc.Row([filterbank_zerodm, filterbank_searchdm, filterbank_butterfly]),
-            dbc.Row([heatmapfig, colorscale])
+            dbc.Row([heatmapfig, burstlcdiv]),
+            dbc.Row(colorscale, justify="center"),
         ]), # this corresponding to filterbank plots
-        
+        dbc.Container([
+            dbc.Row(html.P(html.B("Synthesized Images"))),
+            dbc.Row(imgdigplot),
+            dbc.Row([snrfig, zoomfig, detectfig]),
+        ]),
         "done..."
     )
 
@@ -407,12 +500,36 @@ def rescale_filterbank(heatmapfig, nclicks, slidervalue):
 
     return heatmapfig, color
 
-
-    
-
-### layouts
-
-
+@callback(
+    Output("candidate_all_files", "children"),
+    Input("cand_query_strings", "data"),
+)
+def printout_files(cand_query_strings):
+    cand_query_dict = eval(cand_query_strings)
+    uvfitsrow = html.Tr([
+        html.Td(html.B("UVFITS")),
+        html.Td([
+            html.Abbr(cand_query_dict["uvfitspath"], id="cand_uvfits_path"),
+            dcc.Clipboard(target_id="cand_uvfits_path", title="copy", style = {"display": "inline-block"})
+        ]),
+    ])
+    calrow = html.Tr([
+        html.Td(html.B("CAL")),
+        html.Td([
+            html.Abbr(cand_query_dict["calpath"], id="cand_cal_path"),
+            dcc.Clipboard(target_id="cand_cal_path", title="copy", style = {"display": "inline-block"})
+        ]),
+    ])
+    clustrow = html.Tr([
+        html.Td(html.B("CLUST")),
+        html.Td([
+            html.Abbr(cand_query_dict["clustpath"], id="cand_clust_path"),
+            dcc.Clipboard(target_id="cand_clust_path", title="copy", style = {"display": "inline-block"})
+        ]),
+    ])
+    return dbc.Col(dbc.Table(html.Tbody([
+        uvfitsrow, calrow, clustrow
+    ]), borderless=True, color="light"), width=10)
 
 ### final layout
 def layout(**cand_query_strings):
@@ -428,6 +545,7 @@ def layout(**cand_query_strings):
             dbc.Row([
                 dbc.Col(html.Div(id="cand_info_table_div"), width=12), # basic information from pipeline
             ]),
+                dbc.Row(id="candidate_all_files", justify="center"),
             dbc.Row([
                 html.H5("Candidate External Information")
             ]),
@@ -440,6 +558,7 @@ def layout(**cand_query_strings):
                 dbc.Col(dcc.Loading(id="craco_cand_plot_status", fullscreen=False)),
             ]),
             dbc.Row(id="craco_candidate_filterbank"),
+            dbc.Row(id="craco_candidate_images"),
         ])),
         dbc.Container(dbc.Row([
             html.Div(id="cand_test_div"),

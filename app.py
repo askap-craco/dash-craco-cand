@@ -19,8 +19,8 @@ app = Dash(
 )
 
 # authentication
-USERNAME_PASSWORD_PAIRS = load_password("statics/pwd.json")
-auth = dash_auth.BasicAuth(app, USERNAME_PASSWORD_PAIRS)
+# USERNAME_PASSWORD_PAIRS = load_password("statics/pwd.json")
+# auth = dash_auth.BasicAuth(app, USERNAME_PASSWORD_PAIRS)
 
 # make layout
 app.layout = html.Div(
