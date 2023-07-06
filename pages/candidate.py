@@ -72,23 +72,38 @@ def update_cand_query_strings(cand_query_strings):
         cand_uvfits_paths = glob.glob(cand_uvfits_pattern)
         cand_uvfits_path = cand_uvfits_paths[0] if cand_uvfits_paths else None
 
-    cand_cal_path = "/data/seren-01/big/craco/SB{:0>6}/cal/{}/b{}.aver.4pol.smooth.npy".format(
+    cand_cal_path = "/data/seren-01/big/craco/SB{:0>6}/cal/{:0>2}/b{:0>2}.aver.4pol.smooth.npy".format(
         cand_query_strings["sbid"], int(cand_query_strings["beam"]), int(cand_query_strings["beam"]),
     )
 
     if cand_query_strings["tstart"] is not None:
-        cand_clust_path = "/data/seren-{:0>2}/big/craco/SB{:0>6}/scans/{}/{}/{}/clustering_output/candidates.txtb{}.uniq".format(
+        cand_clust_path = "/data/seren-{:0>2}/big/craco/SB{:0>6}/scans/{}/{}/{}/clustering_output/candidates.txtb{:0>2}.uniq".format(
             int(cand_query_strings["beam"]) % 10 + 1, cand_query_strings["sbid"],
             cand_query_strings["scan"], cand_query_strings["tstart"],
             cand_query_strings["results"], int(cand_query_strings["beam"])
         )
     else:
-        cand_clust_pattern =  "/data/seren-{:0>2}/big/craco/SB{:0>6}/scans/{}/*/{}/clustering_output/candidates.txtb{}.uniq".format(
+        cand_clust_pattern =  "/data/seren-{:0>2}/big/craco/SB{:0>6}/scans/{}/*/{}/clustering_output/candidates.txtb{:0>2}.uniq".format(
             int(cand_query_strings["beam"]) % 10 + 1, cand_query_strings["sbid"], cand_query_strings["scan"], 
             cand_query_strings["results"], int(cand_query_strings["beam"])
         )
         cand_clust_paths = glob.glob(cand_clust_pattern)
         cand_clust_path = cand_clust_paths[0] if cand_clust_paths else None
+    
+    ### unclustered
+    if cand_query_strings["tstart"] is not None:
+        cand_unclust_path = "/data/seren-{:0>2}/big/craco/SB{:0>6}/scans/{}/{}/{}/candidates.txtb{:0>2}".format(
+            int(cand_query_strings["beam"]) % 10 + 1, cand_query_strings["sbid"],
+            cand_query_strings["scan"], cand_query_strings["tstart"],
+            cand_query_strings["results"], int(cand_query_strings["beam"])
+        )
+    else:
+        cand_unclust_pattern =  "/data/seren-{:0>2}/big/craco/SB{:0>6}/scans/{}/*/{}/candidates.txtb{:0>2}".format(
+            int(cand_query_strings["beam"]) % 10 + 1, cand_query_strings["sbid"], cand_query_strings["scan"], 
+            cand_query_strings["results"], int(cand_query_strings["beam"])
+        )
+        cand_unclust_paths = glob.glob(cand_unclust_pattern)
+        cand_unclust_path = cand_unclust_paths[0] if cand_unclust_paths else None
 
     if cand_uvfits_path: 
         if not os.path.exists(cand_uvfits_path): cand_uvfits_path = None
@@ -101,7 +116,11 @@ def update_cand_query_strings(cand_query_strings):
         if not os.path.exists(cand_clust_path): cand_clust_path = None
     cand_query_strings["clustpath"] = cand_clust_path
 
-    print(cand_query_strings)
+    if cand_unclust_path:
+        if not os.path.exists(cand_unclust_path): cand_unclust_path = None
+    cand_query_strings["unclustpath"] = cand_unclust_path
+
+    # print(cand_query_strings)
 
     return cand_query_strings.__str__()
 
@@ -324,8 +343,9 @@ def craco_cand_plot(nclick, cand_query_strings):
             "boxc_width": int(cand_query_dict["boxcwidth"]), 
             "lpix": int(cand_query_dict["lpix"]), "mpix": int(cand_query_dict["mpix"])
         }
-    except:
-        return None, "Not enough info..."
+    except Exception as err:
+        # print(err)
+        return None, None, "Not enough info..."
 
     padding = 100
 
@@ -355,7 +375,7 @@ def craco_cand_plot(nclick, cand_query_strings):
         ], width=4
     )
 
-    fig, ax = cand.plot_filterbank(dm=cand.search_output["dm_pccm3"], keepnan=False)
+    fig, ax = cand.plot_filterbank(dm=cand.search_output["dm_pccm3"], keepnan=True)
     filterbank_searchdm = dbc.Col([
         dbc.Row("dedispered at DM={:.2f}".format(cand.search_output["dm_pccm3"]), justify="center"),
         dbc.Row(_pltfig2img(fig, style={"width": "100%"})), 
@@ -370,7 +390,7 @@ def craco_cand_plot(nclick, cand_query_strings):
     )
 
     # interactive filterbank plot
-    filterbank_plot, trange_ = cand._dedisperse2tf(dm=cand.search_output["dm_pccm3"], keepnan=False)
+    filterbank_plot, trange_ = cand._dedisperse2tf(dm=cand.search_output["dm_pccm3"], keepnan=True)
     taxis = np.linspace(*trange_, filterbank_plot.shape[1]) * cand.tsamp
     faxis = np.linspace(cand.freqs[0]/1e6, cand.freqs[-1]/1e6, filterbank_plot.shape[0])
 
@@ -378,7 +398,7 @@ def craco_cand_plot(nclick, cand_query_strings):
 
     heatmapfig = dbc.Col(html.Div(dcc.Graph(
         figure= px.imshow(
-            filterbank_plot, x=taxis, y=faxis, aspect="auto"
+            filterbank_plot, x=taxis, y=faxis, aspect="auto", origin="lower"
         ),
         id="cand_filterbank_interactive", 
     )), width=6, className="h-100")
@@ -386,16 +406,16 @@ def craco_cand_plot(nclick, cand_query_strings):
     # lightcurve
     lcfig = go.Figure()
     lcfig.add_traces([
-        go.Scatter(x=taxis, y=filterbank_plot.mean(axis=0), name="mean"),
-        go.Scatter(x=taxis, y=filterbank_plot.max(axis=0), name="max"),
-        go.Scatter(x=taxis, y=filterbank_plot.min(axis=0), name="min"),
+        go.Scatter(x=taxis, y=np.nanmean(filterbank_plot, axis=0), name="mean"),
+        go.Scatter(x=taxis, y=np.nanmax(filterbank_plot, axis=0), name="max"),
+        go.Scatter(x=taxis, y=np.nanmin(filterbank_plot, axis=0), name="min"),
     ])
     burstlcfig = dbc.Col(html.Div(dcc.Graph(
         figure=lcfig, id="cand_filterbank_interlc", responsive=True
     )))
 
-    pixelmax = np.round(filterbank_plot.max(), 2) 
-    pixelmin = np.round(filterbank_plot.min(), 2)
+    pixelmax = np.round(np.nanmax(filterbank_plot), 2) 
+    pixelmin = np.round(np.nanmin(filterbank_plot), 2)
     pixelrange = np.round((pixelmax - pixelmin), 2)
 
     burstlcdiv=dbc.Col(dbc.Row([
@@ -407,7 +427,7 @@ def craco_cand_plot(nclick, cand_query_strings):
             "Mannual Color Scale Disabled", id="cand_filterbank_cscale_btn", color="danger", n_clicks=0
         ), style={"margin": "10px"}, justify="center",),
         dbc.Row(dcc.RangeSlider(
-            pixelmin - 0.5*pixelrange, pixelmax + 0.5*pixelrange,
+            np.round(pixelmin - 0.5*pixelrange,2), np.round(pixelmax + 0.5*pixelrange, 2),
             value=[pixelmin, pixelmax], id="cand_filterbank_slider",
             tooltip={"placement": "bottom", "always_visible": True}
         ), justify="center")
@@ -424,8 +444,9 @@ def craco_cand_plot(nclick, cand_query_strings):
     fig = px.imshow(
         cand.imgcube.std(axis=0), origin='lower',
     )
+    fig.update_layout(title=dict(text="std image (inter)", x=0.5, xanchor="center"))
     snrfig = dbc.Col([
-        dbc.Row("std image", justify="center"),
+        # dbc.Row("std image", justify="center"),
         dbc.Row(html.Div(dcc.Graph(figure=fig, ))),
     ], width=4)
 
@@ -445,8 +466,9 @@ def craco_cand_plot(nclick, cand_query_strings):
         zmax=imagestd * 8, zmin=-imagestd,
         origin="lower",
     )
+    fig.update_layout(title=dict(text="zoom-in images (inter)\ndetected {}-{}".format(imgidx_s, imgidx_e), x=0.5, xanchor="center"))
     zoomfig = dbc.Col([
-        dbc.Row("zoom-in images", justify="center"),
+        # dbc.Row("zoom-in images", justify="center"),
         dbc.Row(html.Div(dcc.Graph(figure=fig, ))),
     ], width=4)
 
@@ -454,8 +476,9 @@ def craco_cand_plot(nclick, cand_query_strings):
         img_detected.mean(axis=0), # take the mean image over detected period
         origin="lower",
     )
+    fig.update_layout(title=dict(text="detection image (inter)", x=0.5, xanchor="center"))
     detectfig = dbc.Col([
-        dbc.Row("detection image", justify="center"),
+        # dbc.Row("detection image", justify="center"),
         dbc.Row(html.Div(dcc.Graph(figure=fig, ))),
     ], width=4)
 
@@ -527,8 +550,15 @@ def printout_files(cand_query_strings):
             dcc.Clipboard(target_id="cand_clust_path", title="copy", style = {"display": "inline-block"})
         ]),
     ])
+    unclustrow = html.Tr([
+        html.Td(html.B("UNCLUST")),
+        html.Td([
+            html.Abbr(cand_query_dict["unclustpath"], id="uncand_clust_path"),
+            dcc.Clipboard(target_id="cand_unclust_path", title="copy", style = {"display": "inline-block"})
+        ]),
+    ])
     return dbc.Col(dbc.Table(html.Tbody([
-        uvfitsrow, calrow, clustrow
+        uvfitsrow, calrow, clustrow, unclustrow
     ]), borderless=True, color="light"), width=10)
 
 ### final layout
