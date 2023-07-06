@@ -32,5 +32,7 @@ app.layout = html.Div(
 )
 
 if __name__ == "__main__":
-    init_sqlite()
-    server.run(host="0.0.0.0", port=8020, debug=True)
+    # init_sqlite()
+    # server.run(host="0.0.0.0", port=8020, debug=True)
+    # app.run_server(debug=True)
+    server.run(host="0.0.0.0", debug=True)
