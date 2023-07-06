@@ -10,6 +10,9 @@ import pandas as pd
 import numpy as np
 import plotly.express as px
 
+from astropy.coordinates import SkyCoord
+import astropy.units as units
+
 ### choose from file directly, select beamfile
 ### if you know 
 
@@ -55,7 +58,7 @@ def load_scan4sbid(inputsbid):
     Output("beam_cand_files_div", "children"),
     Output("cand_file_paths", "data"),
     Input("beam_beam_input", "value"),
-    State("beam_sbid_input", "value"),
+    Input("beam_sbid_input", "value"),
     State("beam_scan_dropdown", "value"),
 )
 def load_candidate(beamid, inputsbid, beamscan, ):
@@ -64,7 +67,7 @@ def load_candidate(beamid, inputsbid, beamscan, ):
         serennode = "{:0>2}".format(int(beamid) % 10 + 1)
         beam = "{:0>2}".format(int(beamid))
     except:
-        raise PreventUpdate()
+        return None, ""
 
     try:
         if inputsbid.isdigit():
@@ -72,14 +75,16 @@ def load_candidate(beamid, inputsbid, beamscan, ):
         else:
             sbid = "SB{:0>6}".format(int(inputsbid[2:]))
     except:
-        raise PreventUpdate()
+        return None, ""
 
 
     resultpath = f"/data/seren-{serennode}/big/craco/{sbid}/scans/{beamscan}"
     allcandfile = f"{resultpath}/candidates.txtb{beam}"
     unicandfile = f"{resultpath}/clustering_output/candidates.txtb{beam}.uniq"
+    uvfitsfile = f"{resultpath}/b{beam}.uvfits"
+    calfile = f"/data/seren-01/big/craco/{sbid}/cal/{beam}/b{beam}.aver.4pol.smooth.npy"
 
-    print(allcandfile, unicandfile)
+    # print(allcandfile, unicandfile, uvfitsfile, calfile, sep="\n")
 
     # add file if it is existing
     candrows = []; candfiles = {}
@@ -101,10 +106,70 @@ def load_candidate(beamid, inputsbid, beamscan, ):
             ], width=10)
         ]))
         candfiles["unicand_fpath"] = unicandfile
+    if os.path.exists(uvfitsfile):
+        candrows.append(dbc.Row([
+            dbc.Col("uvfits", width=2),
+            dbc.Col([
+                dbc.FormText(uvfitsfile, id="beam_cand_uvfits_fpath"),
+                dcc.Clipboard(target_id="beam_cand_uvfits_fpath", title="copy", style = {"display": "inline-block"})
+            ])
+        ]))
+    if os.path.exists(calfile):
+        candrows.append(dbc.Row([
+            dbc.Col("calfile", width=2),
+            dbc.Col([
+                dbc.FormText(calfile, id="beam_cand_cal_fpath"),
+                dcc.Clipboard(target_id="beam_cand_cal_fpath", title="copy", style = {"display": "inline-block"})
+            ])
+        ]))
+
+    ### add click button for unclustered and clustered files...
+    allcand_href = None; unicand_href = None
+    allcand_color = "secondary"; unicand_color = "secondary"
+    allcand_title = "unclustered (unavail)"; unicand_title = "clustered (unavail)"
+    if os.path.exists(unicandfile):
+        unicand_href = f"/beam?fname={unicandfile}"
+        unicand_color = "success"
+        unicand_title = "clustered (recom)"
+    if os.path.exists(allcandfile):
+        allcand_href = f"/beam?fname={allcandfile}"
+        allcand_color = "danger"
+        allcand_title = "unclustered (no)"
+
+    candrows.append(dbc.Row([
+        dbc.Col(html.A(dbc.Button(unicand_title, color=unicand_color), href=unicand_href, target="_blank"), width=4),
+        dbc.Col(html.A(dbc.Button(allcand_title, color=allcand_color), href=allcand_href, target="_blank"), width=4),
+    ], style={"margin": "15px"}))
+    candrows.append(dbc.Row([
+        dbc.FormText("unclustered candidates may take super long time to render... we suggest you use clustered version...")
+    ]))
 
     return (
         candrows, candfiles.__str__()
     )    
+
+@callback(
+    Output("beam_cand_coord_btn", "color"),
+    Output("beam_cand_coord_link", "href"),
+    Input("beam_cand_ra_input", "value"),
+    Input("beam_cand_dec_input", "value"),
+)
+def link_beam_cand_coord(rainput, decinput):
+    if rainput is None or decinput is None:
+        return "secondary", None
+    coordstr = "{} {}".format(rainput.strip(), decinput.strip())
+    try:
+        coord = SkyCoord(coordstr)
+    except:
+        try:
+            coord = SkyCoord(coordstr, (units.hourangle, units.degree))
+        except:
+            return "danger", None
+    radeg = coord.ra.value
+    decdeg = coord.dec.value
+
+    return "success", "/candidate?ra={}&dec={}".format(radeg, decdeg)
+
 
 ### layout
 # for selection files...
@@ -140,10 +205,34 @@ def find_cand_file_layout():
         beaminput_row, candfile_row
     ])
 
+### candidate coord layout
+def cand_coord_layout():
+    rarow = dbc.Row([
+        dbc.Col(dbc.Label(html.B("RA")), width=3),
+        dbc.Col(dbc.Input(id="beam_cand_ra_input", placeholder="Right Ascension", type="text"), width=9),
+    ])
+    decrow = dbc.Row([
+        dbc.Col(dbc.Label(html.B("DEC")), width=3),
+        dbc.Col(dbc.Input(id="beam_cand_dec_input", placeholder="Declination", type="text"), width=9),
+    ])
+    candbutton = dbc.Row(
+        html.A(dbc.Button(
+            "Go To Coord", color="secondary", id="beam_cand_coord_btn"
+        ), target="_blank", id="beam_cand_coord_link")
+    )
+    return dbc.Row([
+        dbc.Col([rarow, decrow], width=6),
+        dbc.Col(candbutton, align="center", width=6)
+    ])
+
 ### final layout
 def layout(**beam_query_strings):
     return dbc.Container([
             dcc.Store(id="cand_file_paths"),
             dbc.Row(html.H5("Candidate File Input")),
-            dbc.Row(find_cand_file_layout())
+            dbc.Row(find_cand_file_layout()),
+            dbc.Row(html.H5("Candidate Coordinate Input")),
+            dbc.Row(dbc.FormText("This may be helpful if you just want to check if there is any obvious match for a given coord")),
+            dbc.Row(cand_coord_layout(), style={"margin": "15px"}),
+            
     ])
