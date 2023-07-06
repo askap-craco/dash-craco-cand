@@ -25,9 +25,9 @@ def _header():
     return dbc.NavbarSimple(
         children = [
             dbc.NavItem(dbc.NavLink("Home", href="/")),
-            dbc.NavItem(dbc.NavLink("Manage", href="/manage")),
-            dbc.NavItem(dbc.NavLink("SchedBlock", href="/schedblock")),
-            dbc.NavItem(dbc.NavLink("Beam", href="/beam"))
+            dbc.NavItem(dbc.NavLink("Beamloader", href="/beamfile")),
+            # dbc.NavItem(dbc.NavLink("SchedBlock", href="/schedblock")),
+            # dbc.NavItem(dbc.NavLink("Beam", href="/beam"))
         ],
         brand="CRACO Candidate Inspection",
         brand_href="/", color="primary", dark=True,
