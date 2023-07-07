@@ -62,6 +62,7 @@ def update_beam_query_strings(beam_query_strings):
                 beam = int(fnamesplit[-1][-2:]),
                 unique = False,
             )
+            beam_query_dict.update(new_dict)
     else:
         ### assume sbid, scanpath, beam, unique are there...
         try:
