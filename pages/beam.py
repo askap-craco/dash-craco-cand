@@ -95,11 +95,11 @@ def update_beam_query_strings(beam_query_strings):
             if "unique" not in beam_query_dict:
                 beam_query_dict["unique"] = True
             else:
-                beam_query_dict["unique"] = bool(beam_query_dict["unique"])
+                beam_query_dict["unique"] = eval(beam_query_dict["unique"])
 
             ### here we go
             serennode = int(beam_query_dict["beam"]) % 10 + 1
-            if beam_query_dict["unique"]:
+            if bool(beam_query_dict["unique"]):
                 fpath = "/data/seren-{:0>2}/big/craco/SB{:0>6}/scans/{}/clustering_output/candidates.txtb{:0>2}.uniq".format(
                     serennode, sbid, beam_query_dict["scanpath"], int(beam_query_dict["beam"])
                 )

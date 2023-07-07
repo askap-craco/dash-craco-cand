@@ -455,7 +455,7 @@ def craco_cand_plot(nclick, cand_query_strings):
     _dets = cand.search_output["total_sample"]
     _viss = cand.visrange[0]
 
-    imgidx_e = _dets - _viss + 1
+    imgidx_e = _dets - _viss
     imgidx_s = imgidx_e - cand.search_output["boxc_width"]
     ## detections are ...
     img_detected = cand.imgcube[imgidx_s:imgidx_e + 1]
