@@ -324,6 +324,18 @@ def _pltfig2img(fig, **extra_param):
         src=fig_to_uri(fig), **extra_param,
     )
 
+### function to add rect shape
+def _dash_rect_region(x, y, radius):
+    linedict = dict(
+        type="rect", 
+        line=dict(width=5, dash="dot", color="cyan"),
+    )
+    selection_bound = dict(
+        x0=x-radius, x1=x+radius,
+        y0=y-radius, y1=y+radius,
+    )
+    return linedict, selection_bound
+
 # craco candidate related plotting
 @callback(
     Output("craco_candidate_filterbank", "children"),
@@ -396,10 +408,15 @@ def craco_cand_plot(nclick, cand_query_strings):
 
     # print()
 
+    fig = px.imshow(
+        filterbank_plot, x=taxis, y=faxis, aspect="auto", origin="lower"
+    )
+    fig.add_vline(
+        x=cand.search_output["obstime_sec"],
+        line_width=1, line_dash="dash", line_color="red",
+    ) # add vertical line to indicate the burst time
     heatmapfig = dbc.Col(html.Div(dcc.Graph(
-        figure= px.imshow(
-            filterbank_plot, x=taxis, y=faxis, aspect="auto", origin="lower"
-        ),
+        figure=fig,
         id="cand_filterbank_interactive", 
     )), width=6, className="h-100")
 
@@ -410,6 +427,10 @@ def craco_cand_plot(nclick, cand_query_strings):
         go.Scatter(x=taxis, y=np.nanmax(filterbank_plot, axis=0), name="max"),
         go.Scatter(x=taxis, y=np.nanmin(filterbank_plot, axis=0), name="min"),
     ])
+    lcfig.add_vline(
+        x=cand.search_output["obstime_sec"],
+        line_width=1, line_dash="dash", line_color="red",
+    )
     burstlcfig = dbc.Col(html.Div(dcc.Graph(
         figure=lcfig, id="cand_filterbank_interlc", responsive=True
     )))
@@ -441,9 +462,14 @@ def craco_cand_plot(nclick, cand_query_strings):
     ])
 
     ### make interactive snr image, and interactive zoom image
+    linedict, selection_bound_large = _dash_rect_region(
+        cand.search_output["lpix"], cand.search_output["mpix"], 10
+    )
+    linedict, selection_bound_small = _dash_rect_region(10, 10, 5)
     fig = px.imshow(
         cand.imgcube.std(axis=0), origin='lower',
     )
+    fig.add_shape(linedict, **selection_bound_large)
     fig.update_layout(title=dict(text="std image (inter)", x=0.5, xanchor="center"))
     snrfig = dbc.Col([
         # dbc.Row("std image", justify="center"),
@@ -466,6 +492,7 @@ def craco_cand_plot(nclick, cand_query_strings):
         zmax=imagestd * 8, zmin=-imagestd,
         origin="lower",
     )
+    fig.add_shape(linedict, **selection_bound_small)
     fig.update_layout(title=dict(text="zoom-in images (inter)\ndetected {}-{}".format(imgidx_s, imgidx_e), x=0.5, xanchor="center"))
     zoomfig = dbc.Col([
         # dbc.Row("zoom-in images", justify="center"),
@@ -476,6 +503,7 @@ def craco_cand_plot(nclick, cand_query_strings):
         img_detected.mean(axis=0), # take the mean image over detected period
         origin="lower",
     )
+    fig.add_shape(linedict, **selection_bound_large)
     fig.update_layout(title=dict(text="detection image (inter)", x=0.5, xanchor="center"))
     detectfig = dbc.Col([
         # dbc.Row("detection image", justify="center"),
