@@ -340,6 +340,7 @@ def _dash_rect_region(x, y, radius):
 @callback(
     Output("craco_candidate_filterbank", "children"),
     Output("craco_candidate_images", "children"),
+    Output("craco_candidate_larger_images", "children"),
     # Output("cand_filterbank_store", "data"),
     Output("craco_cand_plot_status", "children"),
     Input("craco_cand_plot_btn", "n_clicks"),
@@ -365,7 +366,7 @@ def craco_cand_plot(nclick, cand_query_strings):
         crow = crow,
         uvsource = cand_query_dict["uvfitspath"],
         calibration_file = cand_query_dict["calpath"],
-        workdir="./test", padding=padding
+        workdir=None, padding=padding
     )
     cand.search_output["obstime_sec"] = cand.search_output["total_sample"] * cand.tsamp
 
@@ -467,7 +468,7 @@ def craco_cand_plot(nclick, cand_query_strings):
     )
     linedict, selection_bound_small = _dash_rect_region(10, 10, 5)
     fig = px.imshow(
-        cand.imgcube.std(axis=0), origin='lower',
+        cand.imgcube.std(axis=0), origin='lower', 
     )
     fig.add_shape(linedict, **selection_bound_large)
     fig.update_layout(title=dict(text="std image (inter)", x=0.5, xanchor="center"))
@@ -510,6 +511,9 @@ def craco_cand_plot(nclick, cand_query_strings):
         dbc.Row(html.Div(dcc.Graph(figure=fig, ))),
     ], width=4)
 
+    ### once we have a light version craco_plan,
+    ### considering move larger image to here
+
     os.system("rm uv_data.*.txt")
 
     return (
@@ -524,8 +528,90 @@ def craco_cand_plot(nclick, cand_query_strings):
             dbc.Row(imgdigplot),
             dbc.Row([snrfig, zoomfig, detectfig]),
         ]),
+        dbc.Container([
+            dbc.Row([
+                dbc.Col(html.P(html.B("Synthesized Images (npix=512)")), width=3),
+                dbc.Col(dbc.Button("Process", id="craco_cand_large_plot_btn", color="success"), width=3),
+                dbc.Col(dcc.Loading(id="craco_cand_large_plot_status", fullscreen=False)),
+            ]),
+            dbc.Container(id="craco_candidate_larger_images_div"),
+        ]),
         "done..."
     )
+
+### plot for larger region
+@callback(
+    Output("craco_candidate_larger_images_div", "children"),
+    Output("craco_cand_large_plot_status", "children"),
+    Input("craco_cand_large_plot_btn", "n_clicks"),
+    State("cand_query_strings", "data"),
+    prevent_initial_call=True,
+)
+def craco_cand_large_plot(nclick, cand_query_strings):
+    # again move it to the top callback once we have a light version plan
+    cand_query_dict = eval(cand_query_strings)
+    crow = {
+        "ra_deg": float(cand_query_dict["ra"]), "dec_deg": float(cand_query_dict["dec"]),
+        "dm_pccm3": float(cand_query_dict["dm"]), "total_sample": int(cand_query_dict["totalsample"]),
+        "boxc_width": int(cand_query_dict["boxcwidth"]), 
+        "lpix": int(cand_query_dict["lpix"]), "mpix": int(cand_query_dict["mpix"])
+    }
+
+    padding = 100
+    cand = craco_candidate.Candidate(
+        crow = crow,
+        uvsource = cand_query_dict["uvfitspath"],
+        calibration_file = cand_query_dict["calpath"],
+        workdir=None, padding=padding, planargs="--ndm 2 --npix 512"
+    )
+    cand.search_output["obstime_sec"] = cand.search_output["total_sample"] * cand.tsamp
+
+    cand._calibrate_data(cand.calibration_file)
+    cand._normalise_vis(target=False)
+    cand._dedisperse_block(dm=cand.search_output["dm_pccm3"])
+    cand._grid_image_data()
+
+    ### three interactive images again... but a larger version
+    _mpix = 128 + crow["mpix"]; _lpix = 128 + crow["lpix"]
+    linedict, selection_bound_large = _dash_rect_region(_lpix, _mpix, 10)
+    linedict, selection_bound_small = _dash_rect_region(10, 10, 5)
+
+    ### snr image
+    fig = px.imshow(cand.imgcube.std(axis=0), origin="lower")
+    fig.add_shape(linedict, **selection_bound_large)
+    fig.update_layout(title=dict(text="std image (inter)", x=0.5, xanchor="center"))
+    snrfig = dbc.Col([dbc.Row(html.Div(dcc.Graph(figure=fig)))], width=4)
+
+    ### detection things
+    _dets = cand.search_output["total_sample"]; _viss = cand.visrange[0]
+    imgidx_e = _dets - _viss; imgidx_s = imgidx_e - cand.search_output["boxc_width"]
+
+    img_detected = cand.imgcube[imgidx_s:imgidx_e + 1]
+    imagestd = cand.imgcube.std()
+
+    ### make new cube...
+    cand.imgzoomcube = cand.imgcube[
+        :, cand._workout_slice_w_center(_mpix, 512, 10), cand._workout_slice_w_center(_lpix, 512, 10)
+    ] # this is a bit hard coding here...
+
+    fig = px.imshow(
+        cand.imgzoomcube, animation_frame=0, zmax=imagestd * 8, zmin=-imagestd, origin="lower"
+    )
+    fig.add_shape(linedict, **selection_bound_small)
+    fig.update_layout(title=dict(text="zoom-in images (inter)\ndetected {}-{}".format(imgidx_s, imgidx_e), x=0.5, xanchor="center"))
+    zoomfig = dbc.Col([dbc.Row(html.Div(dcc.Graph(figure=fig, )))], width=4)
+
+    fig = px.imshow(
+        img_detected.mean(axis=0), # take the mean image over detected period
+        origin="lower",
+    )
+    fig.add_shape(linedict, **selection_bound_large)
+    fig.update_layout(title=dict(text="detection image (inter)", x=0.5, xanchor="center"))
+    detectfig = dbc.Col([dbc.Row(html.Div(dcc.Graph(figure=fig, ))),], width=4)
+
+    os.system("rm uv_data.*.txt")
+
+    return dbc.Row([snrfig, zoomfig, detectfig]), "done..."
 
 # callback to enable mannual color scales
 @callback(
@@ -617,6 +703,7 @@ def layout(**cand_query_strings):
             ]),
             dbc.Row(id="craco_candidate_filterbank"),
             dbc.Row(id="craco_candidate_images"),
+            dbc.Row(id="craco_candidate_larger_images"),
         ])),
         dbc.Container(dbc.Row([
             html.Div(id="cand_test_div"),
