@@ -64,13 +64,28 @@ def update_cand_query_strings(cand_query_strings):
             cand_query_strings["scan"], cand_query_strings["tstart"],
             cand_query_strings["results"], int(cand_query_strings["beam"])
         )
+        if not os.path.exists(cand_uvfits_path):
+            cand_uvfits_pattern = "/data/seren-{:0>2}/big/craco/SB{:0>6}/scans/{}/{}/*/b{:0>2}.uvfits".format(
+                int(cand_query_strings["beam"]) % 10 + 1, cand_query_strings["sbid"],
+                cand_query_strings["scan"], cand_query_strings["tstart"], int(cand_query_strings["beam"])
+            )
+            cand_uvfits_paths = glob.glob(cand_uvfits_pattern)
+            cand_uvfits_path = cand_uvfits_paths[0] if cand_uvfits_paths else None
     else:
         cand_uvfits_pattern =  "/data/seren-{:0>2}/big/craco/SB{:0>6}/scans/{}/*/{}/b{:0>2}.uvfits".format(
             int(cand_query_strings["beam"]) % 10 + 1, cand_query_strings["sbid"], cand_query_strings["scan"], 
             cand_query_strings["results"], int(cand_query_strings["beam"])
         )
         cand_uvfits_paths = glob.glob(cand_uvfits_pattern)
-        cand_uvfits_path = cand_uvfits_paths[0] if cand_uvfits_paths else None
+        if not cand_uvfits_paths:
+            cand_uvfits_pattern = "/data/seren-{:0>2}/big/craco/SB{:0>6}/scans/{}/*/*/b{:0>2}.uvfits".format(
+                int(cand_query_strings["beam"]) % 10 + 1, cand_query_strings["sbid"],
+                cand_query_strings["scan"], int(cand_query_strings["beam"])
+            )
+            cand_uvfits_paths = glob.glob(cand_uvfits_pattern)
+            cand_uvfits_path = cand_uvfits_paths[0] if cand_uvfits_paths else None
+        else:
+            cand_uvfits_path = cand_uvfits_paths[0]
 
     cand_cal_path = "/data/seren-01/big/craco/SB{:0>6}/cal/{:0>2}/b{:0>2}.aver.4pol.smooth.npy".format(
         cand_query_strings["sbid"], int(cand_query_strings["beam"]), int(cand_query_strings["beam"]),
