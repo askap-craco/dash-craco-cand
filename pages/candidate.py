@@ -463,13 +463,14 @@ def craco_cand_plot(nclick, cand_query_strings):
     ])
 
     ### make interactive snr image, and interactive zoom image
+    ### make standard deviation normalisation
+    stdimg = cand.imgcube.std(axis=0)
+
     linedict, selection_bound_large = _dash_rect_region(
         cand.search_output["lpix"], cand.search_output["mpix"], 10
     )
     linedict, selection_bound_small = _dash_rect_region(10, 10, 5)
-    fig = px.imshow(
-        cand.imgcube.std(axis=0), origin='lower', 
-    )
+    fig = px.imshow(stdimg, origin='lower', )
     fig.add_shape(linedict, **selection_bound_large)
     fig.update_layout(title=dict(text="std image (inter)", x=0.5, xanchor="center"))
     snrfig = dbc.Col([
@@ -488,8 +489,10 @@ def craco_cand_plot(nclick, cand_query_strings):
     img_detected = cand.imgcube[imgidx_s:imgidx_e + 1]
     imagestd = cand.imgcube.std()
 
+    stdmed = np.median(stdimg)
+
     fig = px.imshow(
-        cand.imgzoomcube, animation_frame=0, 
+        cand.imgzoomcube / stdmed, animation_frame=0, 
         zmax=imagestd * 8, zmin=-imagestd,
         origin="lower",
     )
@@ -501,7 +504,7 @@ def craco_cand_plot(nclick, cand_query_strings):
     ], width=4)
 
     fig = px.imshow(
-        img_detected.mean(axis=0), # take the mean image over detected period
+        img_detected.mean(axis=0) / stdmed / np.sqrt(img_detected.shape[0]), # take the mean image over detected period
         origin="lower",
     )
     fig.add_shape(linedict, **selection_bound_large)
@@ -577,7 +580,9 @@ def craco_cand_large_plot(nclick, cand_query_strings):
     linedict, selection_bound_small = _dash_rect_region(10, 10, 5)
 
     ### snr image
-    fig = px.imshow(cand.imgcube.std(axis=0), origin="lower")
+    stdimg = cand.imgcube.std(axis=0)
+
+    fig = px.imshow(stdimg, origin="lower")
     fig.add_shape(linedict, **selection_bound_large)
     fig.update_layout(title=dict(text="std image (inter)", x=0.5, xanchor="center"))
     snrfig = dbc.Col([dbc.Row(html.Div(dcc.Graph(figure=fig)))], width=4)
@@ -588,6 +593,7 @@ def craco_cand_large_plot(nclick, cand_query_strings):
 
     img_detected = cand.imgcube[imgidx_s:imgidx_e + 1]
     imagestd = cand.imgcube.std()
+    stdmed = np.median(stdimg)
 
     ### make new cube...
     cand.imgzoomcube = cand.imgcube[
@@ -595,14 +601,14 @@ def craco_cand_large_plot(nclick, cand_query_strings):
     ] # this is a bit hard coding here...
 
     fig = px.imshow(
-        cand.imgzoomcube, animation_frame=0, zmax=imagestd * 8, zmin=-imagestd, origin="lower"
+        cand.imgzoomcube / stdmed, animation_frame=0, zmax=imagestd * 8, zmin=-imagestd, origin="lower"
     )
     fig.add_shape(linedict, **selection_bound_small)
     fig.update_layout(title=dict(text="zoom-in images (inter)\ndetected {}-{}".format(imgidx_s, imgidx_e), x=0.5, xanchor="center"))
     zoomfig = dbc.Col([dbc.Row(html.Div(dcc.Graph(figure=fig, )))], width=4)
 
     fig = px.imshow(
-        img_detected.mean(axis=0), # take the mean image over detected period
+        img_detected.mean(axis=0) / stdmed / np.sqrt(img_detected.shape[0]), # take the mean image over detected period
         origin="lower",
     )
     fig.add_shape(linedict, **selection_bound_large)
