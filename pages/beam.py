@@ -70,7 +70,10 @@ def update_beam_query_strings(beam_query_strings):
             ### check if scanpath exists
             if "scanpath" not in beam_query_dict:
                 ### use glob to get the most possible value...
-                scanlst = glob.glob(f"/data/seren-??/big/craco/SB{sbid:0>6}/scans/??/*/*")
+                if "results" in beam_query_dict:
+                    scanlst = glob.glob(f"/data/seren-??/big/craco/SB{sbid:0>6}/scans/??/*/{beam_query_dict['results']}")
+                else:
+                    scanlst = glob.glob(f"/data/seren-??/big/craco/SB{sbid:0>6}/scans/??/*/*")
                 scanlst = [f for f in scanlst if os.path.isdir(f)]
                 scans, defaultscan = _workout_uniq_scans_plaintxt(scanlst)
 

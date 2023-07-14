@@ -429,7 +429,7 @@ def craco_cand_plot(nclick, cand_query_strings):
     )
     fig.add_vline(
         x=cand.search_output["obstime_sec"],
-        line_width=1, line_dash="dash", line_color="red",
+        line_width=1, line_dash="dash", line_color="black",
     ) # add vertical line to indicate the burst time
     heatmapfig = dbc.Col(html.Div(dcc.Graph(
         figure=fig,
@@ -507,7 +507,7 @@ def craco_cand_plot(nclick, cand_query_strings):
     stdmed = np.median(stdimg)
 
     fig = px.imshow(
-        cand.imgzoomcube / stdmed, animation_frame=0, 
+        cand.imgzoomcube, animation_frame=0, 
         zmax=imagestd * 8, zmin=-imagestd,
         origin="lower",
     )
@@ -616,7 +616,7 @@ def craco_cand_large_plot(nclick, cand_query_strings):
     ] # this is a bit hard coding here...
 
     fig = px.imshow(
-        cand.imgzoomcube / stdmed, animation_frame=0, zmax=imagestd * 8, zmin=-imagestd, origin="lower"
+        cand.imgzoomcube, animation_frame=0, zmax=imagestd * 8, zmin=-imagestd, origin="lower"
     )
     fig.add_shape(linedict, **selection_bound_small)
     fig.update_layout(title=dict(text="zoom-in images (inter)\ndetected {}-{}".format(imgidx_s, imgidx_e), x=0.5, xanchor="center"))
