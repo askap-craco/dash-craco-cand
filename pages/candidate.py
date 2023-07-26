@@ -23,7 +23,7 @@ import astropy.units as units
 from astroquery.vizier import Vizier
 from astroquery.simbad import Simbad
 
-from apputil import fig_to_uri
+from apputil import fig_to_uri, load_filterbank
 
 from craco import craco_candidate
 
@@ -125,6 +125,36 @@ def update_cand_query_strings(cand_query_strings):
         cand_unclust_paths = glob.glob(cand_unclust_pattern)
         cand_unclust_path = cand_unclust_paths[0] if cand_unclust_paths else None
 
+    ### filterbank
+    if cand_query_strings["tstart"] is not None:
+        cand_ics_path = "/data/seren-{:0>2}/big/craco/SB{:0>6}/scans/{}/{}/{}/ics_b{:0>2}.fil".format(
+            int(cand_query_strings["beam"]) % 10 + 1, cand_query_strings["sbid"],
+            cand_query_strings["scan"], cand_query_strings["tstart"],
+            cand_query_strings["results"], int(cand_query_strings["beam"])
+        )
+    else:
+        cand_ics_pattern =  "/data/seren-{:0>2}/big/craco/SB{:0>6}/scans/{}/*/{}/ics_b{:0>2}.fil".format(
+            int(cand_query_strings["beam"]) % 10 + 1, cand_query_strings["sbid"], cand_query_strings["scan"], 
+            cand_query_strings["results"], int(cand_query_strings["beam"])
+        )
+        cand_ics_paths = glob.glob(cand_ics_pattern)
+        cand_ics_path = cand_ics_paths[0] if cand_ics_paths else None
+
+    ### cas
+    if cand_query_strings["tstart"] is not None:
+        cand_cas_path = "/data/seren-{:0>2}/big/craco/SB{:0>6}/scans/{}/{}/{}/cas_b{:0>2}.fil".format(
+            int(cand_query_strings["beam"]) % 10 + 1, cand_query_strings["sbid"],
+            cand_query_strings["scan"], cand_query_strings["tstart"],
+            cand_query_strings["results"], int(cand_query_strings["beam"])
+        )
+    else:
+        cand_cas_pattern =  "/data/seren-{:0>2}/big/craco/SB{:0>6}/scans/{}/*/{}/cas_b{:0>2}.fil".format(
+            int(cand_query_strings["beam"]) % 10 + 1, cand_query_strings["sbid"], cand_query_strings["scan"], 
+            cand_query_strings["results"], int(cand_query_strings["beam"])
+        )
+        cand_cas_paths = glob.glob(cand_cas_pattern)
+        cand_cas_path = cand_cas_paths[0] if cand_cas_paths else None
+
     if cand_uvfits_path: 
         if not os.path.exists(cand_uvfits_path): cand_uvfits_path = None
     cand_query_strings["uvfitspath"] = cand_uvfits_path
@@ -139,6 +169,14 @@ def update_cand_query_strings(cand_query_strings):
     if cand_unclust_path:
         if not os.path.exists(cand_unclust_path): cand_unclust_path = None
     cand_query_strings["unclustpath"] = cand_unclust_path
+
+    if cand_ics_path:
+        if not os.path.exists(cand_ics_path): cand_ics_path = None
+    cand_query_strings["icspath"] = cand_ics_path
+
+    if cand_cas_path:
+        if not os.path.exists(cand_cas_path): cand_cas_path = None
+    cand_query_strings["caspath"] = cand_cas_path
 
     # print(cand_query_strings)
 
@@ -356,6 +394,76 @@ def _dash_rect_region(x, y, radius):
     )
     return linedict, selection_bound
 
+# cas/ics candidate related plotting
+# @app.long_callback(
+#     output = [
+#         Output("craco_icscas", "children"),
+#         Output("craco_icscas_plot_status", "children"),
+#     ],
+#     inputs = [
+#         Input("craco_icscas_plot_btn", "n_clicks"),
+#         State("cand_query_strings", "data"),
+#     ],
+#     running = [
+#         (Output("craco_icscas_plot_btn", "disabled"), True, False),
+#     ],
+#     prevent_initial_call=True,
+# )
+@callback(
+    output = [
+        Output("craco_icscas", "children"),
+        Output("craco_icscas_plot_status", "children"),
+    ],
+    inputs = [
+        Input("craco_icscas_plot_btn", "n_clicks"),
+        State("cand_query_strings", "data"),
+    ],
+    prevent_initial_call=True,
+)
+def craco_icscas_plot(nclick, cand_query_strings):
+    cand_query_dict = eval(cand_query_strings)
+
+    ### check if ics/cas exists
+    icspath = cand_query_dict["icspath"]
+    caspath = cand_query_dict["caspath"]
+    totalsample = cand_query_dict["totalsample"]
+
+    if totalsample is None: return "totalsample need to be provided to proceed..."
+    totalsample = int(totalsample)
+
+    if icspath is not None:
+        icsdata, taxis, faxis = load_filterbank(icspath, totalsample-75, 150)
+        icsfig = px.imshow(
+            icsdata[:, 0, :].T, x=taxis, y=faxis, aspect="auto",
+        )
+        icsfig.add_vline(
+            x=totalsample, line_width=1, line_dash="dash", line_color="black",
+        )
+        icsfig.update_layout(title=dict(text="ICS", x=0.5, xanchor="center"))
+        icsfigcol = dbc.Col(html.Div(dcc.Graph(
+            figure=icsfig, id="cand_ics_interactive",
+        )), width=6, className="h-100")
+    else:
+        icsfigcol = dbc.Col(width=6, className="h-100")
+
+    if caspath is not None:
+        casdata, taxis, faxis = load_filterbank(caspath, totalsample-75, 150)
+        casfig = px.imshow(
+            casdata[:, 0, :].T, x=taxis, y=faxis, aspect="auto",
+        )
+        casfig.add_vline(
+            x=totalsample, line_width=1, line_dash="dash", line_color="black",
+        )
+        casfig.update_layout(title=dict(text="CAS", x=0.5, xanchor="center"))
+        casfigcol = dbc.Col(html.Div(dcc.Graph(
+            figure=casfig, id="cand_cas_interactive",
+        )), width=6, className="h-100")
+    else:
+        casfigcol = dbc.Col(width=6, className="h-100")
+
+    return dbc.Row([icsfigcol, casfigcol]), "Done..."
+
+
 # craco candidate related plotting
 # https://stackoverflow.com/a/75437616
 @app.long_callback(
@@ -566,7 +674,7 @@ def craco_cand_plot(nclick, cand_query_strings):
     )
 
 ### plot for larger region
-@app.callback(
+@app.long_callback(
     output = [
         Output("craco_candidate_larger_images_div", "children"),
         Output("craco_cand_large_plot_status", "children"),
@@ -732,6 +840,12 @@ def layout(**cand_query_strings):
             dbc.Row([
                 dbc.Col(html.Div(id="cand_cross_table_div"), width=12), # cross check from PSRCAT, RACS, SIMBAD
             ]),
+            dbc.Row([
+                dbc.Col(html.H5("ICS/CAS"), width=3),
+                dbc.Col(dbc.Button("Process", id="craco_icscas_plot_btn", color="success"), width=3),
+                dbc.Col(dcc.Loading(id="craco_icscas_plot_status", fullscreen=False)),
+            ]),
+            dbc.Row(id="craco_icscas"),
             dbc.Row([
                 dbc.Col(html.H5("Candidate CRACO Data"), width=3),
                 dbc.Col(dbc.Button("Process", id="craco_cand_plot_btn", color="success"), width=3),

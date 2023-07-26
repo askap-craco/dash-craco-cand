@@ -12,6 +12,8 @@ import sqlite3
 from io import BytesIO
 import base64
 
+from craft import sigproc
+
 # load password pairs
 def load_password(fname):
     with open(fname) as fp:
@@ -158,3 +160,27 @@ def fig_to_uri(in_fig, close_all=True, **save_args):
     out_img.seek(0)  # rewind file
     encoded = base64.b64encode(out_img.read()).decode("ascii").replace("\n", "")
     return "data:image/png;base64,{}".format(encoded)
+
+### load filterbank
+def load_filterbank(filpath, tstart, ntimes):
+    if tstart < 0: tstart = 0
+    
+    # load files
+    f = sigproc.SigprocFile(filpath)
+    nelements = ntimes*f.nifs*f.nchans
+    f.seek_data(f.bytes_per_element*tstart)
+
+    if (f.nbits == 8): dtype = np.uint8
+    elif (f.nbits == 32): dtype = np.float32
+
+    v = np.fromfile(f.fin, dtype=dtype, count=nelements )
+    v = v.reshape(-1, f.nifs, f.nchans)
+
+    tend = tstart + v.shape[0]
+
+    ### give a list of time
+    taxis = np.linspace(tstart, tend, v.shape[0], endpoint=False)
+    faxis = np.arange(f.nchans) * f.foff + f.fch1
+
+    return v, taxis, faxis
+

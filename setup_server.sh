@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # activate craco environment
-conda activate dash3.8
+# conda activate dash3.8
 
 # make sure the redis server is running
 if ! redis-cli ping > /dev/null 2>&1; then
