@@ -819,8 +819,38 @@ def printout_files(cand_query_strings):
         uvfitsrow, calrow, clustrow, unclustrow
     ]), borderless=True, color="light"), width=10)
 
+def _back_cand_btn(cand_query_strings, unique=True):
+    title = "UNIQUE CANDPAGE" if unique else "UNCLUST CANDPAGE"
+    try:
+        sbid = cand_query_strings["sbid"]
+        beam = cand_query_strings["beam"]
+        runname = cand_query_strings["results"]
+        if "tstart" not in cand_query_strings:
+            scanpath = None
+        else:
+            scanpath = "{}/{}/{}".format(
+                cand_query_strings["scan"], cand_query_strings["tstart"],
+                cand_query_strings["results"]
+            )
+            return dcc.Link(
+                title,
+                href="/beam?sbid={}&beam={}&unique={}&scanpath={}".format(
+                    sbid, beam, unique, scanpath
+                ),
+                target="_blank",
+            )
+        return dcc.Link(
+            title, href="/beam?sbid={}&beam={}&results={}&unique={}".format(
+                sbid, beam, runname, unique
+            ), target="_blank",
+        )
+    except Exception as error:
+        print(error)
+        return None
+
 ### final layout
 def layout(**cand_query_strings):
+    print(cand_query_strings)
 
     return html.Div([
         dcc.Location(id="cand_url", refresh=False),
@@ -828,7 +858,9 @@ def layout(**cand_query_strings):
         dcc.Store(id="cand_filterbank_store"), # make this available later perhaps
         dbc.Container(dbc.Col([
             dbc.Row([
-                html.H5("Candidate Pipeline Information")
+                dbc.Col(html.H5("Candidate Pipeline Information"), width=3),
+                dbc.Col(_back_cand_btn(cand_query_strings, unique=True), width=3),
+                dbc.Col(_back_cand_btn(cand_query_strings, unique=False), width=3),
             ]),
             dbc.Row([
                 dbc.Col(html.Div(id="cand_info_table_div"), width=12), # basic information from pipeline
