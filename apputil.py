@@ -1,7 +1,5 @@
 from dash import html
 import dash_bootstrap_components as dbc
-from dash_iconify import DashIconify
-import dash_mantine_components as dmc
 
 import matplotlib.pyplot as plt
 
@@ -111,54 +109,6 @@ def init_sqlite():
     create_table(cursor, )
     conn.commit()
     conn.close()
-
-### file tree to load data
-class FileTree:
-    # https://community.plotly.com/t/file-explorer-tree-generator-for-local-files/68732/3
-    def __init__(self, filepath: os.PathLike,id:str):
-        """
-        Usage: component = FileTree('Path/to/my/File').render()
-        """
-        self.id = id
-        self.filepath = filepath
-
-    def render(self) -> dmc.Accordion:
-        return dmc.AccordionMultiple(FileTree.build_tree(self.filepath, isRoot=True),id=self.id)
-
-    @staticmethod
-    def flatten(l):
-        return [item for sublist in l for item in sublist]
-
-    @staticmethod
-    def make_file(file_name):
-        return dmc.Text(
-            [DashIconify(icon="akar-icons:file"), " ", file_name],
-            style={"paddingTop": "5px"},
-        )
-
-    @staticmethod
-    def make_folder(folder_name):
-        return [DashIconify(icon="akar-icons:folder"), " ", folder_name]
-
-    @staticmethod
-    def build_tree(path, isRoot=False):
-        d = []
-        if os.path.isdir(path): # if it is a folder
-            children = [FileTree.build_tree(os.path.join(path, x)) for x in os.listdir(path)]
-            print(children)
-            if isRoot:
-                return FileTree.flatten(children)
-            item = dmc.AccordionItem(
-                [
-                    dmc.AccordionControl(FileTree.make_folder(os.path.basename(path))),
-                    dmc.AccordionPanel(children=FileTree.flatten(children))
-                ],value=path)
-            d.append(item)
-            
-
-        else:
-            d.append(FileTree.make_file(os.path.basename(path)))
-        return d
 
 ### load candidates handler
 def load_candidate(fname):

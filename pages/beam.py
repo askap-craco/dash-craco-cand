@@ -12,7 +12,7 @@ import numpy as np
 import os
 import glob
 
-from apputil import FileTree, load_candidate
+from apputil import load_candidate
 
 dash.register_page(__name__, path="/beam", title="CRACO File Loader")
 

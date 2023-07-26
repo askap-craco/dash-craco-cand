@@ -1,5 +1,9 @@
-from dash import Dash, html, callback, dcc, Input, Output,State, ctx, dash_table
-from dash_extensions.enrich import DashProxy, LogTransform, DashLogger
+from dash import (
+    Dash, html, callback, 
+    dcc, Input, Output, State, 
+    ctx, dash_table,
+    )
+
 from dash.dash_table.Format import Format, Scheme
 import dash_bootstrap_components as dbc
 from dash.exceptions import PreventUpdate
@@ -26,6 +30,7 @@ from craco import craco_candidate
 dash.register_page(__name__, path="/candidate", title="CRACO candidate Plotter")
 
 ### functions
+app = dash.get_app()
 
 ### callbacks
 @callback(
@@ -352,16 +357,38 @@ def _dash_rect_region(x, y, radius):
     return linedict, selection_bound
 
 # craco candidate related plotting
-@callback(
-    Output("craco_candidate_filterbank", "children"),
-    Output("craco_candidate_images", "children"),
-    Output("craco_candidate_larger_images", "children"),
-    # Output("cand_filterbank_store", "data"),
-    Output("craco_cand_plot_status", "children"),
-    Input("craco_cand_plot_btn", "n_clicks"),
-    State("cand_query_strings", "data"),
-    prevent_initial_call=True
+# https://stackoverflow.com/a/75437616
+@app.long_callback(
+    output=[
+        Output("craco_candidate_filterbank", "children"),
+        Output("craco_candidate_images", "children"),
+        Output("craco_candidate_larger_images", "children"),
+        # Output("cand_filterbank_store", "data"),
+        Output("craco_cand_plot_status", "children"),
+    ],
+    inputs=[
+        Input("craco_cand_plot_btn", "n_clicks"),
+        State("cand_query_strings", "data"),
+    ],
+    running=[
+        (Output("craco_cand_plot_btn", "disabled"), True, False),
+    ],
+    prevent_initial_call=True,
 )
+# @callback(
+#     output=[
+#         Output("craco_candidate_filterbank", "children"),
+#         Output("craco_candidate_images", "children"),
+#         Output("craco_candidate_larger_images", "children"),
+#         # Output("cand_filterbank_store", "data"),
+#         Output("craco_cand_plot_status", "children"),
+#     ],
+#     inputs=[
+#         Input("craco_cand_plot_btn", "n_clicks"),
+#         State("cand_query_strings", "data"),
+#     ],
+#     prevent_initial_call=True,
+# )
 def craco_cand_plot(nclick, cand_query_strings):
     cand_query_dict = eval(cand_query_strings)
     try:
@@ -547,11 +574,6 @@ def craco_cand_plot(nclick, cand_query_strings):
             dbc.Row([snrfig, zoomfig, detectfig]),
         ]),
         dbc.Container([
-            dbc.Row([
-                dbc.Col(html.P(html.B("Synthesized Images (npix=512)")), width=3),
-                dbc.Col(dbc.Button("Process", id="craco_cand_large_plot_btn", color="success"), width=3),
-                dbc.Col(dcc.Loading(id="craco_cand_large_plot_status", fullscreen=False)),
-            ]),
             dbc.Container(id="craco_candidate_larger_images_div"),
         ]),
         "done..."
@@ -724,6 +746,11 @@ def layout(**cand_query_strings):
             ]),
             dbc.Row(id="craco_candidate_filterbank"),
             dbc.Row(id="craco_candidate_images"),
+            dbc.Row([
+                dbc.Col(html.P(html.B("Synthesized Images (npix=512)")), width=3),
+                dbc.Col(dbc.Button("Process", id="craco_cand_large_plot_btn", color="success"), width=3),
+                dbc.Col(dcc.Loading(id="craco_cand_large_plot_status", fullscreen=False)),
+            ]),
             dbc.Row(id="craco_candidate_larger_images"),
         ])),
         dbc.Container(dbc.Row([
