@@ -375,20 +375,6 @@ def _dash_rect_region(x, y, radius):
     ],
     prevent_initial_call=True,
 )
-# @callback(
-#     output=[
-#         Output("craco_candidate_filterbank", "children"),
-#         Output("craco_candidate_images", "children"),
-#         Output("craco_candidate_larger_images", "children"),
-#         # Output("cand_filterbank_store", "data"),
-#         Output("craco_cand_plot_status", "children"),
-#     ],
-#     inputs=[
-#         Input("craco_cand_plot_btn", "n_clicks"),
-#         State("cand_query_strings", "data"),
-#     ],
-#     prevent_initial_call=True,
-# )
 def craco_cand_plot(nclick, cand_query_strings):
     cand_query_dict = eval(cand_query_strings)
     try:
@@ -580,11 +566,18 @@ def craco_cand_plot(nclick, cand_query_strings):
     )
 
 ### plot for larger region
-@callback(
-    Output("craco_candidate_larger_images_div", "children"),
-    Output("craco_cand_large_plot_status", "children"),
-    Input("craco_cand_large_plot_btn", "n_clicks"),
-    State("cand_query_strings", "data"),
+@app.callback(
+    output = [
+        Output("craco_candidate_larger_images_div", "children"),
+        Output("craco_cand_large_plot_status", "children"),
+    ],
+    inputs = [
+        Input("craco_cand_large_plot_btn", "n_clicks"),
+        State("cand_query_strings", "data"),
+    ],
+    running = [
+        (Output("craco_cand_large_plot_btn", "disabled"), True, False),
+    ],
     prevent_initial_call=True,
 )
 def craco_cand_large_plot(nclick, cand_query_strings):
