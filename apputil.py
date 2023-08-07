@@ -184,3 +184,18 @@ def load_filterbank(filpath, tstart, ntimes):
 
     return v, taxis, faxis
 
+### load pulsar catalogue, RACS catalogue etc.
+def load_external_cat():
+    pass
+
+def select_region(df, ra, dec, racol, deccol, radius):
+    ra_r = min(radius / np.cos(np.deg2rad(dec)), 2)
+    rabool = ((df[racol] - ra) % 360 <= ra_r) | ((ra - df[racol]) % 360 <= ra_r)
+    decbool = (np.abs(df[deccol] - dec) <= radius)
+    return df[rabool & decbool]
+
+def circular_mean(angles):
+    angles = np.array(angles)
+    cossum = np.cos(np.deg2rad(angles)).sum()
+    sinsum = np.sin(np.deg2rad(angles)).sum()
+    return np.rad2deg(np.arctan2(sinsum, cossum)) % 360

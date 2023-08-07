@@ -395,21 +395,7 @@ def _dash_rect_region(x, y, radius):
     return linedict, selection_bound
 
 # cas/ics candidate related plotting
-# @app.long_callback(
-#     output = [
-#         Output("craco_icscas", "children"),
-#         Output("craco_icscas_plot_status", "children"),
-#     ],
-#     inputs = [
-#         Input("craco_icscas_plot_btn", "n_clicks"),
-#         State("cand_query_strings", "data"),
-#     ],
-#     running = [
-#         (Output("craco_icscas_plot_btn", "disabled"), True, False),
-#     ],
-#     prevent_initial_call=True,
-# )
-@callback(
+@app.long_callback(
     output = [
         Output("craco_icscas", "children"),
         Output("craco_icscas_plot_status", "children"),
@@ -418,8 +404,22 @@ def _dash_rect_region(x, y, radius):
         Input("craco_icscas_plot_btn", "n_clicks"),
         State("cand_query_strings", "data"),
     ],
+    running = [
+        (Output("craco_icscas_plot_btn", "disabled"), True, False),
+    ],
     prevent_initial_call=True,
 )
+# @callback(
+#     output = [
+#         Output("craco_icscas", "children"),
+#         Output("craco_icscas_plot_status", "children"),
+#     ],
+#     inputs = [
+#         Input("craco_icscas_plot_btn", "n_clicks"),
+#         State("cand_query_strings", "data"),
+#     ],
+#     prevent_initial_call=True,
+# )
 def craco_icscas_plot(nclick, cand_query_strings):
     cand_query_dict = eval(cand_query_strings)
 

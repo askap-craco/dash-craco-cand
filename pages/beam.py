@@ -12,7 +12,10 @@ import numpy as np
 import os
 import glob
 
-from apputil import load_candidate
+from apputil import (
+    load_candidate,
+    circular_mean,
+)
 
 dash.register_page(__name__, path="/beam", title="CRACO File Loader")
 
@@ -123,6 +126,7 @@ def update_beam_query_strings(beam_query_strings):
     Output("beamcand_snr_value", "data"),
     Output("timestamp_slider", "max"),
     Output("beam_warning_load_msg", "children"),
+    # Output("beamcand_center", "data"),
     Input("snr_slider", "value"),
     Input("beam_query_strings", "data"),
     prevent_initial_call=True
@@ -134,11 +138,24 @@ def filterdf_snr(snrthres, beam_query_strings):
         beamcanddf = load_candidate(beam_query_dict["fname"])
         beamcand_snrdf = beamcanddf[beamcanddf["SNR"] >= snrthres]
         beamcand_snrdf = beamcand_snrdf.reset_index(drop=True)
-        return beamcand_snrdf.to_json(orient="split"), beamcanddf["totalsample"].max(), None
+
+        # ra_center = circular_mean(beamcand_snrdf["ra"].to_numpy())
+        # dec_center = np.mean(beamcand_snrdf["dec"].to_numpy())
+        
+        return (
+            beamcand_snrdf.to_json(orient="split"), 
+            beamcanddf["totalsample"].max(), None,
+        )
     except:
         if "fname" in beam_query_dict:
-            return None, 100, dbc.Row(dbc.FormText(f"Warning... error in loading {beam_query_dict['fname']}..."))
-        return None, 100, dbc.Row(dbc.FormText(f"Warning... no candidate file found..."))
+            return (
+                None, 100, dbc.Row(dbc.FormText(f"Warning... error in loading {beam_query_dict['fname']}...")),
+                # None.__str__(),
+            )
+        return (
+            None, 100, dbc.Row(dbc.FormText(f"Warning... no candidate file found...")),
+            # None.__str__(),
+        )
 
 def beam_info_row(query_dict, label, key, width, labelwidth=2):
     if key not in query_dict: value = None
@@ -500,7 +517,7 @@ def snr_slider(default=6):
     slidermarks = [6, 8, 10, 12, 15]
     slider = dbc.Row(
         [
-            dcc.Slider(6, 15, value=6,
+            dcc.Slider(6, 15, value=default,
                 marks={i: {"label": str(i)} for i in slidermarks},
                 tooltip={"placement": "bottom", "always_visible": True},
                 id="snr_slider"
@@ -579,6 +596,15 @@ def candidate_plots_container():
             dbc.Col(lpix_mpix_slider_container()),
         ])),
         selected_region_status_container(),
+        dbc.Container(
+            dbc.Row([
+                dbc.Col(figure_container("radec_figure_div", "radec_figure"), width=6),
+                dbc.Col([
+                    dbc.Row(html.Div(id="psrcat_beam_table_div")),
+                    dbc.Row(html.Div(id="racs_beam_table_div")),
+                ], width=6, className="h-100"),
+            ]),
+        ),
         dbc.Container(dbc.Row(dbc.Col([
             dbc.Row(html.H5("Filtered Candidate Table")),
             dbc.Row(html.Div(id="filtered_candidate_table_div")),
@@ -602,11 +628,12 @@ def layout(**beam_query_strings):
             dbc.Container(id="beam_warning_match_msg"), dbc.Container(id="beam_warning_load_msg"),
             dbc.Container(html.H5("Basic Information")),
             dbc.Container(id="beam_info_div"),
-            snr_slider(),
+            snr_slider(default=8),
             candidate_plots_container(),
             dcc.Store(id="beamcand_snr_value"),
             dcc.Store(id="click_id_value", data=None.__str__()),
             dcc.Store(id="select_id_value", data=None.__str__()),
             dcc.Store(id="filtered_table_index", data="None"),
+            dcc.Store(id="beamcand_center")
         ]
     )
