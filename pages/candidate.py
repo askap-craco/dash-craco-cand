@@ -11,6 +11,7 @@ import dash
 
 import os
 import glob
+import json
 
 import plotly.express as px
 import plotly.graph_objects as go
@@ -32,6 +33,21 @@ dash.register_page(__name__, path="/candidate", title="CRACO candidate Plotter")
 ### functions
 app = dash.get_app()
 
+def _load_flag_chans(cand_query_strings):
+    if "tstart" not in cand_query_strings:
+        return None
+    runname = "{}/{}/{}".format(
+        cand_query_strings["scan"], 
+        cand_query_strings["tstart"], 
+        cand_query_strings["results"]
+    )
+
+    # load summary file...
+    with open("/data/seren-01/big/craco/SB{:0>6}/process_info.json".format(cand_query_strings["sbid"])) as fp:
+        info = json.load(fp)
+    ### load flagchan...
+    return info[runname]["flagchan"]
+    
 ### callbacks
 @callback(
     Output("cand_query_strings", "data"),
@@ -178,7 +194,13 @@ def update_cand_query_strings(cand_query_strings):
         if not os.path.exists(cand_cas_path): cand_cas_path = None
     cand_query_strings["caspath"] = cand_cas_path
 
-    # print(cand_query_strings)
+    ### add antenna flagging
+    try:
+        if cand_query_strings["uvfitspath"] is not None:
+            flagchan = _load_flag_chans(cand_query_strings)
+    except:
+        flagchan = None
+    cand_query_strings["flagchan"] = flagchan
 
     return cand_query_strings.__str__()
 
@@ -502,7 +524,8 @@ def craco_cand_plot(nclick, cand_query_strings):
         crow = crow,
         uvsource = cand_query_dict["uvfitspath"],
         calibration_file = cand_query_dict["calpath"],
-        workdir=None, padding=padding
+        workdir=None, padding=padding,
+        flag_chans=cand_query_dict["flagchan"],
     )
     cand.search_output["obstime_sec"] = cand.search_output["total_sample"] * cand.tsamp
 
@@ -850,7 +873,7 @@ def _back_cand_btn(cand_query_strings, unique=True):
 
 ### final layout
 def layout(**cand_query_strings):
-    print(cand_query_strings)
+    # print(cand_query_strings)
 
     return html.Div([
         dcc.Location(id="cand_url", refresh=False),

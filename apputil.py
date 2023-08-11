@@ -182,6 +182,9 @@ def load_filterbank(filpath, tstart, ntimes):
     taxis = np.linspace(tstart, tend, v.shape[0], endpoint=False)
     faxis = np.arange(f.nchans) * f.foff + f.fch1
 
+    ### change 0 value to nan
+    v[v == 0.] = np.nan
+
     return v, taxis, faxis
 
 ### load pulsar catalogue, RACS catalogue etc.
