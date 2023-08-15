@@ -51,6 +51,7 @@ def _load_flag_chans(cand_query_strings):
 ### callbacks
 @callback(
     Output("cand_query_strings", "data"),
+    Output("cand_flagchan", "value"),
     Input("cand_query_strings", "data"),
 )
 def update_cand_query_strings(cand_query_strings):
@@ -202,7 +203,7 @@ def update_cand_query_strings(cand_query_strings):
         flagchan = None
     cand_query_strings["flagchan"] = flagchan
 
-    return cand_query_strings.__str__()
+    return cand_query_strings.__str__(), flagchan
 
 def info_table_row(key, value):
     return html.Tr([
@@ -492,20 +493,21 @@ def craco_icscas_plot(nclick, cand_query_strings):
     output=[
         Output("craco_candidate_filterbank", "children"),
         Output("craco_candidate_images", "children"),
-        Output("craco_candidate_larger_images", "children"),
+        # Output("craco_candidate_larger_images", "children"),
         # Output("cand_filterbank_store", "data"),
         Output("craco_cand_plot_status", "children"),
     ],
     inputs=[
         Input("craco_cand_plot_btn", "n_clicks"),
         State("cand_query_strings", "data"),
+        State("cand_flagchan", "value"),
     ],
     running=[
         (Output("craco_cand_plot_btn", "disabled"), True, False),
     ],
     prevent_initial_call=True,
 )
-def craco_cand_plot(nclick, cand_query_strings):
+def craco_cand_plot(nclick, cand_query_strings, flagchan):
     cand_query_dict = eval(cand_query_strings)
     try:
         crow = {
@@ -520,12 +522,16 @@ def craco_cand_plot(nclick, cand_query_strings):
 
     padding = 100
 
+    ### flag channels...
+    if flagchan is not None:
+        if flagchan == "": flagchan = None
+
     cand = craco_candidate.Candidate(
         crow = crow,
         uvsource = cand_query_dict["uvfitspath"],
         calibration_file = cand_query_dict["calpath"],
         workdir=None, padding=padding,
-        flag_chans=cand_query_dict["flagchan"],
+        flag_chans=flagchan,
     )
     cand.search_output["obstime_sec"] = cand.search_output["total_sample"] * cand.tsamp
 
@@ -696,9 +702,6 @@ def craco_cand_plot(nclick, cand_query_strings):
             dbc.Row(imgdigplot),
             dbc.Row([snrfig, zoomfig, detectfig]),
         ]),
-        dbc.Container([
-            dbc.Container(id="craco_candidate_larger_images_div"),
-        ]),
         "done..."
     )
 
@@ -711,13 +714,14 @@ def craco_cand_plot(nclick, cand_query_strings):
     inputs = [
         Input("craco_cand_large_plot_btn", "n_clicks"),
         State("cand_query_strings", "data"),
+        State("cand_flagchan", "value"),
     ],
     running = [
         (Output("craco_cand_large_plot_btn", "disabled"), True, False),
     ],
     prevent_initial_call=True,
 )
-def craco_cand_large_plot(nclick, cand_query_strings):
+def craco_cand_large_plot(nclick, cand_query_strings, flagchan):
     # again move it to the top callback once we have a light version plan
     cand_query_dict = eval(cand_query_strings)
     crow = {
@@ -728,11 +732,18 @@ def craco_cand_large_plot(nclick, cand_query_strings):
     }
 
     padding = 100
+
+    ### flag channels...
+    if flagchan is not None:
+        if flagchan == "": flagchan = None
+
     cand = craco_candidate.Candidate(
         crow = crow,
         uvsource = cand_query_dict["uvfitspath"],
         calibration_file = cand_query_dict["calpath"],
-        workdir=None, padding=padding, planargs="--ndm 2 --npix 512"
+        workdir=None, padding=padding, planargs="--ndm 2 --npix 512",
+        flag_chans=flagchan,
+
     )
     cand.search_output["obstime_sec"] = cand.search_output["total_sample"] * cand.tsamp
 
@@ -911,6 +922,10 @@ def layout(**cand_query_strings):
                 dbc.Col(html.H5("Candidate CRACO Data"), width=3),
                 dbc.Col(dbc.Button("Process", id="craco_cand_plot_btn", color="success"), width=3),
                 dbc.Col(dcc.Loading(id="craco_cand_plot_status", fullscreen=False)),
+                dbc.Col(dbc.Row([
+                    dbc.Col(html.P("FLAG"), width=6), 
+                    dbc.Col(dcc.Input(id="cand_flagchan", type="text", placeholder="strrange"), width=6),
+                ]), width=3),
             ]),
             dbc.Row(id="craco_candidate_filterbank"),
             dbc.Row(id="craco_candidate_images"),
@@ -919,7 +934,9 @@ def layout(**cand_query_strings):
                 dbc.Col(dbc.Button("Process", id="craco_cand_large_plot_btn", color="success"), width=3),
                 dbc.Col(dcc.Loading(id="craco_cand_large_plot_status", fullscreen=False)),
             ]),
-            dbc.Row(id="craco_candidate_larger_images"),
+            dbc.Row(dbc.Container([
+                dbc.Container(id="craco_candidate_larger_images_div"),
+            ]), id="craco_candidate_larger_images"),
         ])),
         dbc.Container(dbc.Row([
             html.Div(id="cand_test_div"),
