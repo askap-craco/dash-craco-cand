@@ -457,7 +457,7 @@ def craco_icscas_plot(nclick, cand_query_strings):
     if icspath is not None:
         icsdata, taxis, faxis = load_filterbank(icspath, totalsample-75, 150)
         icsfig = px.imshow(
-            icsdata[:, 0, :].T, x=taxis, y=faxis, aspect="auto",
+            icsdata[:, 0, :].T, x=taxis, y=faxis, aspect="auto", origin="lower",
         )
         icsfig.add_vline(
             x=totalsample, line_width=1, line_dash="dash", line_color="black",
@@ -472,7 +472,7 @@ def craco_icscas_plot(nclick, cand_query_strings):
     if caspath is not None:
         casdata, taxis, faxis = load_filterbank(caspath, totalsample-75, 150)
         casfig = px.imshow(
-            casdata[:, 0, :].T, x=taxis, y=faxis, aspect="auto",
+            casdata[:, 0, :].T, x=taxis, y=faxis, aspect="auto", origin="lower",
         )
         casfig.add_vline(
             x=totalsample, line_width=1, line_dash="dash", line_color="black",
