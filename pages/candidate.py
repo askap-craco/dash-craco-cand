@@ -566,10 +566,16 @@ def craco_cand_plot(nclick, cand_query_strings):
     taxis = np.linspace(*trange_, filterbank_plot.shape[1]) * cand.tsamp
     faxis = np.linspace(cand.freqs[0]/1e6, cand.freqs[-1]/1e6, filterbank_plot.shape[0])
 
-    # print()
-
     fig = px.imshow(
         filterbank_plot, x=taxis, y=faxis, aspect="auto", origin="lower"
+    )
+    ### add hover data...
+    nt = taxis.shape[0]; nfreq = faxis.shape[0]
+    fig.update(
+        data = [dict(
+            customdata=np.repeat(np.arange(nfreq).reshape(-1, 1), nt, axis=1),
+            hovertemplate="tsec %{x:.0f} <br>freq %{y:.3f} <br>chan %{customdata}",
+        )]
     )
     fig.add_vline(
         x=cand.search_output["obstime_sec"],
