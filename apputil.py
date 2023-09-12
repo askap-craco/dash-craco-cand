@@ -365,6 +365,8 @@ def construct_beaminfo(query_dict):
         runname=None, fname=None, unique=False, scanpath=None
     )
     query_dict = _update_default_dict(query_dict, default_dict)
+
+    if isinstance(query_dict["unique"], str): query_dict["unique"] = eval(query_dict["unique"])
     
     if query_dict["fname"] is None:
         query_dict["fname"] = find_file("cand_cls", query_dict) if query_dict["unique"] else find_file("cand_raw", query_dict)
