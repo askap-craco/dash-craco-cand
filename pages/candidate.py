@@ -24,7 +24,10 @@ import astropy.units as units
 from astroquery.vizier import Vizier
 from astroquery.simbad import Simbad
 
-from apputil import fig_to_uri, load_filterbank
+from apputil import (
+    fig_to_uri, load_filterbank,
+    construct_candinfo,
+)
 
 from craco import craco_candidate
 
@@ -58,8 +61,8 @@ def update_cand_query_strings(cand_query_strings):
     cand_query_strings = eval(cand_query_strings)
     ### set some default value in cand_query_strings
     default_values = {
-        "sbid": "000000", "beam": "99", "scan": "00", "tstart": None,
-        "results": "results", "dm": None,
+        "sbid": "000000", "beam": "99", "scan": None, "tstart": None,
+        "runname": None, "dm": None,
         "lpix": None, "mpix": None, "boxcwidth": None,
         "totalsample": None, "ra": None, "dec": None,
     }
@@ -67,138 +70,19 @@ def update_cand_query_strings(cand_query_strings):
     for key, value in default_values.items():
         if key not in cand_query_strings:
             cand_query_strings[key] = value
-    
-    ### do we really need this?
-    cand_query_strings["npzfname"] = "SB{}_B{}_{}_{}_{}_t{}.npz".format(
-        cand_query_strings["sbid"], cand_query_strings["beam"],
-        cand_query_strings["results"], cand_query_strings["lpix"],
-        cand_query_strings["mpix"], cand_query_strings["totalsample"],
-    )
-    ###########################
 
     if cand_query_strings["sbid"] is None:
         print("A SBID must be provided...")
         raise PreventUpdate()
 
-    if cand_query_strings["tstart"] is not None:
-        cand_uvfits_path = "/data/seren-{:0>2}/big/craco/SB{:0>6}/scans/{}/{}/{}/b{:0>2}.uvfits".format(
-            int(cand_query_strings["beam"]) % 10 + 1, cand_query_strings["sbid"],
-            cand_query_strings["scan"], cand_query_strings["tstart"],
-            cand_query_strings["results"], int(cand_query_strings["beam"])
-        )
-        if not os.path.exists(cand_uvfits_path):
-            cand_uvfits_pattern = "/data/seren-{:0>2}/big/craco/SB{:0>6}/scans/{}/{}/*/b{:0>2}.uvfits".format(
-                int(cand_query_strings["beam"]) % 10 + 1, cand_query_strings["sbid"],
-                cand_query_strings["scan"], cand_query_strings["tstart"], int(cand_query_strings["beam"])
-            )
-            cand_uvfits_paths = glob.glob(cand_uvfits_pattern)
-            cand_uvfits_path = cand_uvfits_paths[0] if cand_uvfits_paths else None
-    else:
-        cand_uvfits_pattern =  "/data/seren-{:0>2}/big/craco/SB{:0>6}/scans/{}/*/{}/b{:0>2}.uvfits".format(
-            int(cand_query_strings["beam"]) % 10 + 1, cand_query_strings["sbid"], cand_query_strings["scan"], 
-            cand_query_strings["results"], int(cand_query_strings["beam"])
-        )
-        cand_uvfits_paths = glob.glob(cand_uvfits_pattern)
-        if not cand_uvfits_paths:
-            cand_uvfits_pattern = "/data/seren-{:0>2}/big/craco/SB{:0>6}/scans/{}/*/*/b{:0>2}.uvfits".format(
-                int(cand_query_strings["beam"]) % 10 + 1, cand_query_strings["sbid"],
-                cand_query_strings["scan"], int(cand_query_strings["beam"])
-            )
-            cand_uvfits_paths = glob.glob(cand_uvfits_pattern)
-            cand_uvfits_path = cand_uvfits_paths[0] if cand_uvfits_paths else None
-        else:
-            cand_uvfits_path = cand_uvfits_paths[0]
-
-    cand_cal_path = "/data/seren-01/big/craco/SB{:0>6}/cal/{:0>2}/b{:0>2}.aver.4pol.smooth.npy".format(
-        cand_query_strings["sbid"], int(cand_query_strings["beam"]), int(cand_query_strings["beam"]),
-    )
-
-    if cand_query_strings["tstart"] is not None:
-        cand_clust_path = "/data/seren-{:0>2}/big/craco/SB{:0>6}/scans/{}/{}/{}/clustering_output/candidates.txtb{:0>2}.uniq".format(
-            int(cand_query_strings["beam"]) % 10 + 1, cand_query_strings["sbid"],
-            cand_query_strings["scan"], cand_query_strings["tstart"],
-            cand_query_strings["results"], int(cand_query_strings["beam"])
-        )
-    else:
-        cand_clust_pattern =  "/data/seren-{:0>2}/big/craco/SB{:0>6}/scans/{}/*/{}/clustering_output/candidates.txtb{:0>2}.uniq".format(
-            int(cand_query_strings["beam"]) % 10 + 1, cand_query_strings["sbid"], cand_query_strings["scan"], 
-            cand_query_strings["results"], int(cand_query_strings["beam"])
-        )
-        cand_clust_paths = glob.glob(cand_clust_pattern)
-        cand_clust_path = cand_clust_paths[0] if cand_clust_paths else None
-    
-    ### unclustered
-    if cand_query_strings["tstart"] is not None:
-        cand_unclust_path = "/data/seren-{:0>2}/big/craco/SB{:0>6}/scans/{}/{}/{}/candidates.txtb{:0>2}".format(
-            int(cand_query_strings["beam"]) % 10 + 1, cand_query_strings["sbid"],
-            cand_query_strings["scan"], cand_query_strings["tstart"],
-            cand_query_strings["results"], int(cand_query_strings["beam"])
-        )
-    else:
-        cand_unclust_pattern =  "/data/seren-{:0>2}/big/craco/SB{:0>6}/scans/{}/*/{}/candidates.txtb{:0>2}".format(
-            int(cand_query_strings["beam"]) % 10 + 1, cand_query_strings["sbid"], cand_query_strings["scan"], 
-            cand_query_strings["results"], int(cand_query_strings["beam"])
-        )
-        cand_unclust_paths = glob.glob(cand_unclust_pattern)
-        cand_unclust_path = cand_unclust_paths[0] if cand_unclust_paths else None
-
-    ### filterbank
-    if cand_query_strings["tstart"] is not None:
-        cand_ics_path = "/data/seren-{:0>2}/big/craco/SB{:0>6}/scans/{}/{}/{}/ics_b{:0>2}.fil".format(
-            int(cand_query_strings["beam"]) % 10 + 1, cand_query_strings["sbid"],
-            cand_query_strings["scan"], cand_query_strings["tstart"],
-            cand_query_strings["results"], int(cand_query_strings["beam"])
-        )
-    else:
-        cand_ics_pattern =  "/data/seren-{:0>2}/big/craco/SB{:0>6}/scans/{}/*/{}/ics_b{:0>2}.fil".format(
-            int(cand_query_strings["beam"]) % 10 + 1, cand_query_strings["sbid"], cand_query_strings["scan"], 
-            cand_query_strings["results"], int(cand_query_strings["beam"])
-        )
-        cand_ics_paths = glob.glob(cand_ics_pattern)
-        cand_ics_path = cand_ics_paths[0] if cand_ics_paths else None
-
-    ### cas
-    if cand_query_strings["tstart"] is not None:
-        cand_cas_path = "/data/seren-{:0>2}/big/craco/SB{:0>6}/scans/{}/{}/{}/cas_b{:0>2}.fil".format(
-            int(cand_query_strings["beam"]) % 10 + 1, cand_query_strings["sbid"],
-            cand_query_strings["scan"], cand_query_strings["tstart"],
-            cand_query_strings["results"], int(cand_query_strings["beam"])
-        )
-    else:
-        cand_cas_pattern =  "/data/seren-{:0>2}/big/craco/SB{:0>6}/scans/{}/*/{}/cas_b{:0>2}.fil".format(
-            int(cand_query_strings["beam"]) % 10 + 1, cand_query_strings["sbid"], cand_query_strings["scan"], 
-            cand_query_strings["results"], int(cand_query_strings["beam"])
-        )
-        cand_cas_paths = glob.glob(cand_cas_pattern)
-        cand_cas_path = cand_cas_paths[0] if cand_cas_paths else None
-
-    if cand_uvfits_path: 
-        if not os.path.exists(cand_uvfits_path): cand_uvfits_path = None
-    cand_query_strings["uvfitspath"] = cand_uvfits_path
-
-    if not os.path.exists(cand_cal_path): cand_cal_path = None
-    cand_query_strings["calpath"] = cand_cal_path
-
-    if cand_clust_path:
-        if not os.path.exists(cand_clust_path): cand_clust_path = None
-    cand_query_strings["clustpath"] = cand_clust_path
-
-    if cand_unclust_path:
-        if not os.path.exists(cand_unclust_path): cand_unclust_path = None
-    cand_query_strings["unclustpath"] = cand_unclust_path
-
-    if cand_ics_path:
-        if not os.path.exists(cand_ics_path): cand_ics_path = None
-    cand_query_strings["icspath"] = cand_ics_path
-
-    if cand_cas_path:
-        if not os.path.exists(cand_cas_path): cand_cas_path = None
-    cand_query_strings["caspath"] = cand_cas_path
+    cand_query_strings = construct_candinfo(cand_query_strings)
 
     ### add antenna flagging
     try:
         if cand_query_strings["uvfitspath"] is not None:
             flagchan = _load_flag_chans(cand_query_strings)
+        else:
+            flagchan = None
     except:
         flagchan = None
     cand_query_strings["flagchan"] = flagchan
@@ -241,7 +125,7 @@ def candidate_pipe_info(cand_query_strings):
         info_table_row("BEAM", "{:0>2}".format(cand_query_dict["beam"])),
         info_table_row("SCAN", cand_query_dict["scan"]),
         info_table_row("TSTART", cand_query_dict["tstart"]),
-        info_table_row("RUNNAME", cand_query_dict["results"]),
+        info_table_row("RUNNAME", cand_query_dict["runname"]),
     ]
 
     basic_info_tab = dbc.Table(html.Tbody(basic_info_rows), borderless=True, color="primary")
@@ -864,13 +748,13 @@ def _back_cand_btn(cand_query_strings, unique=True):
     try:
         sbid = cand_query_strings["sbid"]
         beam = cand_query_strings["beam"]
-        runname = cand_query_strings["results"]
+        runname = cand_query_strings["runname"]
         if "tstart" not in cand_query_strings:
             scanpath = None
         else:
             scanpath = "{}/{}/{}".format(
                 cand_query_strings["scan"], cand_query_strings["tstart"],
-                cand_query_strings["results"]
+                cand_query_strings["runname"]
             )
             return dcc.Link(
                 title,
@@ -885,7 +769,7 @@ def _back_cand_btn(cand_query_strings, unique=True):
             ), target="_blank",
         )
     except Exception as error:
-        print(error)
+        # print(error)
         return None
 
 ### final layout

@@ -15,6 +15,7 @@ import glob
 from apputil import (
     load_candidate,
     circular_mean,
+    construct_beaminfo,
 )
 
 dash.register_page(__name__, path="/beam", title="CRACO File Loader")
@@ -41,83 +42,8 @@ def update_beam_query_strings(beam_query_strings):
     msg = None
     ### the beam_query_strings should be either
     # fname ### or # sbid, scanpath, beam
-    if "fname" in beam_query_dict:
-        candfname = beam_query_dict["fname"]
-        if not os.path.exists(candfname): raise PreventUpdate()
-        # parse information based on the filename
-        fnamesplit = candfname.split("/")
-        if candfname.endswith("uniq"):
-            new_dict = dict(
-                sbid = int(fnamesplit[5][2:]),
-                scan = fnamesplit[7],
-                tstart = fnamesplit[8],
-                runname = fnamesplit[9],
-                beam = int(fnamesplit[-1][-7:-5]),
-                unique = True,
-            )
-            beam_query_dict.update(new_dict)
-        else:
-            new_dict = dict(
-                sbid = int(fnamesplit[5][2:]),
-                scan = fnamesplit[7],
-                tstart = fnamesplit[8],
-                runname = fnamesplit[9],
-                beam = int(fnamesplit[-1][-2:]),
-                unique = False,
-            )
-            beam_query_dict.update(new_dict)
-    else:
-        ### assume sbid, scanpath, beam, unique are there...
-        try:
-            sbid = beam_query_dict["sbid"]
-            ### check if scanpath exists
-            if "scanpath" not in beam_query_dict:
-                ### use glob to get the most possible value...
-                if "results" in beam_query_dict:
-                    scanlst = glob.glob(f"/data/seren-??/big/craco/SB{sbid:0>6}/scans/??/*/{beam_query_dict['results']}")
-                else:
-                    scanlst = glob.glob(f"/data/seren-??/big/craco/SB{sbid:0>6}/scans/??/*/*")
-                scanlst = [f for f in scanlst if os.path.isdir(f)]
-                scans, defaultscan = _workout_uniq_scans_plaintxt(scanlst)
-
-                if defaultscan: 
-                    beam_query_dict["scanpath"] = defaultscan
-                    msg = "results runname found!... will use results run..."
-                elif scans: 
-                    beam_query_dict["scanpath"] = scans[0]
-                    msg = "multiple runs/scans found... will use the first one..."
-
-            scanpath = beam_query_dict["scanpath"]
-            scanpath_split = beam_query_dict["scanpath"].split("/")
-
-            scan = scanpath_split[0]
-            tstart = scanpath_split[1]
-            runname = scanpath_split[2]
-
-            beam_query_dict.update({
-                "scan": scan, "tstart": tstart, "runname": runname,
-            })
-
-            if "unique" not in beam_query_dict:
-                beam_query_dict["unique"] = True
-            else:
-                beam_query_dict["unique"] = eval(beam_query_dict["unique"])
-
-            ### here we go
-            serennode = int(beam_query_dict["beam"]) % 10 + 1
-            if bool(beam_query_dict["unique"]):
-                fpath = "/data/seren-{:0>2}/big/craco/SB{:0>6}/scans/{}/clustering_output/candidates.txtb{:0>2}.uniq".format(
-                    serennode, sbid, beam_query_dict["scanpath"], int(beam_query_dict["beam"])
-                )
-            else:
-                fpath = "/data/seren-{:0>2}/big/craco/SB{:0>6}/scans/{}/candidates.txtb{:0>2}".format(
-                    serennode, sbid, beam_query_dict["scanpath"], int(beam_query_dict["beam"])
-                )
-            beam_query_dict["fname"] = fpath
-        except Exception as err:
-            print(err)
-            if msg is None: msg = "Warning: no correct information found..."
-            return beam_query_dict.__str__(), dbc.Row(dbc.FormText(msg))
+    ### update the beam_query_dict
+    beam_query_dict = construct_beaminfo(beam_query_dict)
     if msg: return beam_query_dict.__str__(), dbc.Row(dbc.FormText(msg))
     return beam_query_dict.__str__(), msg
 

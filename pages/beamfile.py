@@ -13,6 +13,8 @@ import plotly.express as px
 from astropy.coordinates import SkyCoord
 import astropy.units as units
 
+from apputil import find_file
+
 ### choose from file directly, select beamfile
 ### if you know 
 
@@ -77,18 +79,25 @@ def load_candidate(beamid, inputsbid, beamscan, ):
     except:
         return None, ""
 
+    query_dict = dict(sbid=sbid, beam=beam, scanpath=beamscan)
+    uvfitsfile = find_file("uvfits", query_dict)
+    calfile = find_file("cal", query_dict)
+    allcandfile = find_file("cand_raw", query_dict)
+    unicandfile = find_file("cand_cls", query_dict)
+    # resultpath = f"/data/seren-{serennode}/big/craco/{sbid}/scans/{beamscan}"
+    # uvfitsfile = f"{resultpath}/b{beam}.uvfits"
+    # calfile = f"/data/seren-01/big/craco/{sbid}/cal/{beam}/b{beam}.aver.4pol.smooth.npy"
 
-    resultpath = f"/data/seren-{serennode}/big/craco/{sbid}/scans/{beamscan}"
-    allcandfile = f"{resultpath}/candidates.txtb{beam}"
-    unicandfile = f"{resultpath}/clustering_output/candidates.txtb{beam}.uniq"
-    uvfitsfile = f"{resultpath}/b{beam}.uvfits"
-    calfile = f"/data/seren-01/big/craco/{sbid}/cal/{beam}/b{beam}.aver.4pol.smooth.npy"
-
-    # print(allcandfile, unicandfile, uvfitsfile, calfile, sep="\n")
+    # allcandfile = f"{resultpath}/candidates.b{beam}.txt"
+    # if not os.path.exists(allcandfile):
+    #     allcandfile = f"{resultpath}/candidates.txtb{beam}"
+    # unicandfile = f"{resultpath}/clustering_output/candidates.b{beam}.txt.uniq"
+    # if not os.path.exists(unicandfile):
+    #     unicandfile = f"{resultpath}/clustering_output/candidates.txtb{beam}.uniq"
 
     # add file if it is existing
     candrows = []; candfiles = {}
-    if os.path.exists(allcandfile):
+    if allcandfile is not None:
         candrows.append(dbc.Row([
             dbc.Col("unclustered", width=2),
             dbc.Col([
@@ -97,7 +106,7 @@ def load_candidate(beamid, inputsbid, beamscan, ):
             ], width=10)
         ]))
         candfiles["allcand_fpath"] = allcandfile
-    if os.path.exists(unicandfile):
+    if unicandfile is not None:
         candrows.append(dbc.Row([
             dbc.Col("clustered", width=2),
             dbc.Col([
@@ -106,7 +115,7 @@ def load_candidate(beamid, inputsbid, beamscan, ):
             ], width=10)
         ]))
         candfiles["unicand_fpath"] = unicandfile
-    if os.path.exists(uvfitsfile):
+    if uvfitsfile is not None:
         candrows.append(dbc.Row([
             dbc.Col("uvfits", width=2),
             dbc.Col([
@@ -114,7 +123,7 @@ def load_candidate(beamid, inputsbid, beamscan, ):
                 dcc.Clipboard(target_id="beam_cand_uvfits_fpath", title="copy", style = {"display": "inline-block"})
             ])
         ]))
-    if os.path.exists(calfile):
+    if calfile is not None:
         candrows.append(dbc.Row([
             dbc.Col("calfile", width=2),
             dbc.Col([
@@ -127,11 +136,11 @@ def load_candidate(beamid, inputsbid, beamscan, ):
     allcand_href = None; unicand_href = None
     allcand_color = "secondary"; unicand_color = "secondary"
     allcand_title = "unclustered (unavail)"; unicand_title = "clustered (unavail)"
-    if os.path.exists(unicandfile):
+    if unicandfile is not None:
         unicand_href = f"/beam?fname={unicandfile}"
         unicand_color = "success"
         unicand_title = "clustered (recom)"
-    if os.path.exists(allcandfile):
+    if allcandfile is not None:
         allcand_href = f"/beam?fname={allcandfile}"
         allcand_color = "danger"
         allcand_title = "unclustered (no)"
