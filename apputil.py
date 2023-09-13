@@ -116,7 +116,18 @@ def init_sqlite():
 ### load candidates handler
 def load_candidate(fname):
     if fname.endswith(".csv"):
-        cand_df = pd.read_csv(fname)
+        cand_df = pd.read_csv(fname, index_col=0)
+        ### rename columns
+        cand_df = cand_df.rename(
+            columns={
+                "boxc_width": "boxcwidth",
+                "total_sample": "totalsample",
+                "obstime_sec": "obstimesec",
+                "dm_pccm3": "dmpccm",
+                "ra_deg": "ra",
+                "dec_deg": "dec",
+            }
+        )
     else:
         dtype = np.dtype(
             [
