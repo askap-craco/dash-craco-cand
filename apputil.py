@@ -296,9 +296,9 @@ def find_file(
 
     ### for clustered candidates
     if filetype == "cand_cls":
-        candfiles = glob.glob(f"{scandir}/clustering_output/candidates.b{beam}.txt.uniq")
+        candfiles = glob.glob(f"{scandir}/clustering_output/candidates.b{beam}.txt.uniq*")
         if len(candfiles) == 0:
-            candfiles = glob.glob(f"{scandir}/clustering_output/candidates.txtb{beam}.uniq")
+            candfiles = glob.glob(f"{scandir}/clustering_output/candidates.txtb{beam}.uniq*")
             if len(candfiles) == 0: return None
         return candfiles[0] # assume this is the only file...
     
