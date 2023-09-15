@@ -414,7 +414,7 @@ def craco_cand_plot(nclick, cand_query_strings, flagchan):
         crow = crow,
         uvsource = cand_query_dict["uvfitspath"],
         calibration_file = cand_query_dict["calpath"],
-        workdir=None, padding=padding,
+        workdir=None, padding=padding, planargs="--npix 256 --threshold 6",
         flag_chans=flagchan,
     )
     cand.search_output["obstime_sec"] = cand.search_output["total_sample"] * cand.tsamp
@@ -625,7 +625,7 @@ def craco_cand_large_plot(nclick, cand_query_strings, flagchan):
         crow = crow,
         uvsource = cand_query_dict["uvfitspath"],
         calibration_file = cand_query_dict["calpath"],
-        workdir=None, padding=padding, planargs="--ndm 2 --npix 512",
+        workdir=None, padding=padding, planargs="--npix 512 --threshold 6",
         flag_chans=flagchan,
 
     )
