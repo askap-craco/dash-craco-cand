@@ -192,7 +192,7 @@ def _match_racs(candcoord):
     """
     check if there is a known source in RACS-low catalogue
     """
-    v = Vizier(columns=["RAJ2000", "DEJ2000", "Ftot", "Fpk", "+_r"], catalog=["J/other/PASA/38.58/gausscut", "J/other/PASA/38.58/gaussreg"])
+    v = Vizier(columns=["GID","RAJ2000", "DEJ2000", "Ftot", "Fpk", "+_r"], catalog=["J/other/PASA/38.58/gausscut", "J/other/PASA/38.58/gaussreg"])
     v.ROW_LIMITS = -1
 
     try:
@@ -202,7 +202,7 @@ def _match_racs(candcoord):
     
     if racs_query:
         return racs_query[0].to_pandas()
-    return pd.DataFrame({"_r":[], "RAJ2000": [], "DEJ2000": [], "Ftot": [], "Fpk": []})
+    return pd.DataFrame({"_r":[], "GID": [], "RAJ2000": [], "DEJ2000": [], "Ftot": [], "Fpk": []})
 
 def _match_simbad(candcoord):
     """
