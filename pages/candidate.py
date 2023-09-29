@@ -625,7 +625,7 @@ def craco_cand_large_plot(nclick, cand_query_strings, flagchan):
         crow = crow,
         uvsource = cand_query_dict["uvfitspath"],
         calibration_file = cand_query_dict["calpath"],
-        workdir=None, padding=padding, planargs="--npix 512 --threshold 6",
+        workdir=None, padding=padding, planargs="--fov 2.2d,2.2d --npix 512 --threshold 6",
         flag_chans=flagchan,
 
     )
