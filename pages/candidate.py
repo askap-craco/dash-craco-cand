@@ -87,6 +87,8 @@ def update_cand_query_strings(cand_query_strings):
         flagchan = None
     cand_query_strings["flagchan"] = flagchan
 
+    # print(cand_query_strings.__str__()) # for debugging purposes
+
     return cand_query_strings.__str__(), flagchan
 
 def info_table_row(key, value):
@@ -396,9 +398,9 @@ def craco_cand_plot(nclick, cand_query_strings, flagchan):
     try:
         crow = {
             "ra_deg": float(cand_query_dict["ra"]), "dec_deg": float(cand_query_dict["dec"]),
-            "dm_pccm3": float(cand_query_dict["dm"]), "total_sample": int(cand_query_dict["totalsample"]),
-            "boxc_width": int(cand_query_dict["boxcwidth"]), 
-            "lpix": int(cand_query_dict["lpix"]), "mpix": int(cand_query_dict["mpix"])
+            "dm_pccm3": float(cand_query_dict["dm"]), "total_sample": int(float(cand_query_dict["totalsample"])),
+            "boxc_width": int(float(cand_query_dict["boxcwidth"])), 
+            "lpix": int(float(cand_query_dict["lpix"])), "mpix": int(float(cand_query_dict["mpix"]))
         }
     except Exception as err:
         # print(err)
