@@ -338,7 +338,7 @@ def craco_icscas_plot(nclick, cand_query_strings):
     totalsample = cand_query_dict["totalsample"]
 
     if totalsample is None: return "totalsample need to be provided to proceed..."
-    totalsample = int(totalsample)
+    totalsample = int(float(totalsample))
 
     if icspath is not None:
         icsdata, taxis, faxis = load_filterbank(icspath, totalsample-75, 150)
