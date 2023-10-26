@@ -612,9 +612,9 @@ def craco_cand_large_plot(nclick, cand_query_strings, flagchan):
     cand_query_dict = eval(cand_query_strings)
     crow = {
         "ra_deg": float(cand_query_dict["ra"]), "dec_deg": float(cand_query_dict["dec"]),
-        "dm_pccm3": float(cand_query_dict["dm"]), "total_sample": int(cand_query_dict["totalsample"]),
-        "boxc_width": int(cand_query_dict["boxcwidth"]), 
-        "lpix": int(cand_query_dict["lpix"]), "mpix": int(cand_query_dict["mpix"])
+        "dm_pccm3": float(cand_query_dict["dm"]), "total_sample": int(float(cand_query_dict["totalsample"])),
+        "boxc_width": int(float(cand_query_dict["boxcwidth"])), 
+        "lpix": int(float(cand_query_dict["lpix"])), "mpix": int(float(cand_query_dict["mpix"]))
     }
 
     padding = 100
