@@ -11,6 +11,7 @@ import numpy as np
 
 import os
 import glob
+from io import StringIO
 
 from apputil import (
     load_candidate,
@@ -150,7 +151,7 @@ def crossfilter_plot(
     ):
     # print("crossfilter_plot is fired!!! Due to {}".format(ctx.triggered_id))
     try:
-        beamcand_snrdf = pd.read_json(beamcand_snrdf_cache, orient="split")
+        beamcand_snrdf = pd.read_json(StringIO(beamcand_snrdf_cache), orient="split")
     except:
         raise PreventUpdate()
     selectedpoints = beamcand_snrdf.index
@@ -243,7 +244,7 @@ def crossfilter_table(
         beamcand_snrdf_cache
     ):
     try:
-        beamcand_snrdf = pd.read_json(beamcand_snrdf_cache, orient="split")
+        beamcand_snrdf = pd.read_json(StringIO(beamcand_snrdf_cache), orient="split")
     except:
         raise PreventUpdate()
     beamcand_snrdf["index"] = beamcand_snrdf.index
@@ -287,7 +288,7 @@ def loc_sample_plot(
         timestamp, width, beamcand_snrdf_cache
     ):
     try:
-        beamcand_snrdf = pd.read_json(beamcand_snrdf_cache, orient="split")
+        beamcand_snrdf = pd.read_json(StringIO(beamcand_snrdf_cache), orient="split")
     except:
         raise PreventUpdate()
     sample_df = beamcand_snrdf[np.abs(beamcand_snrdf["totalsample"]-timestamp) <= width]
@@ -324,7 +325,7 @@ def clicked_candidate_table(
         # click_cache,
     ):
     try:
-        beamcand_snrdf = pd.read_json(beamcand_snrdf_cache, orient="split")
+        beamcand_snrdf = pd.read_json(StringIO(beamcand_snrdf_cache), orient="split")
     except:
         raise PreventUpdate()
     beam_query_dict = eval(beam_query_strings)
@@ -407,7 +408,7 @@ def selected_rows_table(
     ):
 
     try:
-        beamcand_snrdf = pd.read_json(beamcand_snrdf_cache, orient="split")
+        beamcand_snrdf = pd.read_json(StringIO(beamcand_snrdf_cache), orient="split")
     except:
         raise PreventUpdate()
     beam_query_dict = eval(beam_query_strings)

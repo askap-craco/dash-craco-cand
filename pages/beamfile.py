@@ -14,20 +14,25 @@ from astropy.coordinates import SkyCoord
 import astropy.units as units
 
 from apputil import find_file
+from craco.datadirs import DataDirs, SchedDir, ScanDir, RunDir, format_sbid
+
 
 ### choose from file directly, select beamfile
 ### if you know 
 
 dash.register_page(__name__, path="/beamfile", title="CRACO File Loader")
 
-def _workout_uniq_scans(scanlst):
-    scans = ["/".join(scan.split("/")[-3:]) for scan in scanlst]
-    scans = list(set(scans))
+def _workout_uniq_scans(sched_head_dir, scanlst):
+    # this is for skadi
+    scans = [scan for scan in scanlst if os.path.exists(f"{sched_head_dir}/scans/{scan}")]
+    if len(scans) == 0: return [], None
 
     defaultscan = None
     for scan in scans:
         if scan.endswith("/results"):
             defaultscan = scan
+    scans = sorted(scans)
+    if defaultscan is None: defaultscan = scans[0]
 
     return [{"label": scan, "value": scan} for scan in scans], defaultscan
 
@@ -48,9 +53,14 @@ def load_scan4sbid(inputsbid):
     except:
         return ([], None, True)
 
-    scanlst = glob.glob(f"/data/seren-??/big/craco/{sbid}/scans/??/*/*")
-    scanlst = [f for f in scanlst if os.path.isdir(f)]
-    scan_options, defaultscan = _workout_uniq_scans(scanlst)
+    scheddir = SchedDir(sbid)
+    scanlst = []
+    for scan in scheddir.scans:
+        scandir = ScanDir(sbid, scan)
+        for run in scandir.runs:
+            scanlst.append(f"{scan}/{run}")
+
+    scan_options, defaultscan = _workout_uniq_scans(scheddir.sched_head_dir, scanlst)
     if scan_options:
         return (scan_options, defaultscan, False, )
     return ([], None, True)
@@ -80,20 +90,11 @@ def load_candidate(beamid, inputsbid, beamscan, ):
         return None, ""
 
     query_dict = dict(sbid=sbid, beam=beam, scanpath=beamscan)
+    print(query_dict)
     uvfitsfile = find_file("uvfits", query_dict)
     calfile = find_file("cal", query_dict)
     allcandfile = find_file("cand_raw", query_dict)
     unicandfile = find_file("cand_cls", query_dict)
-    # resultpath = f"/data/seren-{serennode}/big/craco/{sbid}/scans/{beamscan}"
-    # uvfitsfile = f"{resultpath}/b{beam}.uvfits"
-    # calfile = f"/data/seren-01/big/craco/{sbid}/cal/{beam}/b{beam}.aver.4pol.smooth.npy"
-
-    # allcandfile = f"{resultpath}/candidates.b{beam}.txt"
-    # if not os.path.exists(allcandfile):
-    #     allcandfile = f"{resultpath}/candidates.txtb{beam}"
-    # unicandfile = f"{resultpath}/clustering_output/candidates.b{beam}.txt.uniq"
-    # if not os.path.exists(unicandfile):
-    #     unicandfile = f"{resultpath}/clustering_output/candidates.txtb{beam}.uniq"
 
     # add file if it is existing
     candrows = []; candfiles = {}
