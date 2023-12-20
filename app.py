@@ -41,4 +41,4 @@ if __name__ == "__main__":
     # init_sqlite()
     # server.run(host="0.0.0.0", port=8020, debug=True)
     # app.run_server(debug=True)
-    server.run(host="0.0.0.0", port=8024, debug=True)
+    server.run(host="0.0.0.0", port=8025, debug=True)
