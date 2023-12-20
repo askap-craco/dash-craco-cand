@@ -20,6 +20,7 @@ import pandas as pd
 import numpy as np
 
 from astropy.coordinates import SkyCoord
+from astropy.time import Time
 import astropy.units as units
 from astroquery.vizier import Vizier
 from astroquery.simbad import Simbad
@@ -29,7 +30,11 @@ from apputil import (
     construct_candinfo,
 )
 
-from craco import craco_candidate
+# from craco import craco_candidate
+from craft import craco_plan
+from craco import craco_cand
+from craco.datadirs import DataDirs, SchedDir, ScanDir, RunDir, format_sbid
+from craft.cmdline import strrange
 
 dash.register_page(__name__, path="/candidate", title="CRACO candidate Plotter")
 
@@ -37,24 +42,61 @@ dash.register_page(__name__, path="/candidate", title="CRACO candidate Plotter")
 app = dash.get_app()
 
 def _load_flag_chans(cand_query_strings):
-    if "tstart" not in cand_query_strings:
-        return None
-    runname = "{}/{}/{}".format(
-        cand_query_strings["scan"], 
-        cand_query_strings["tstart"], 
-        cand_query_strings["results"]
+    return None
+
+def _load_flag_ant(cand_query_strings):
+    cand_query_dict = eval(cand_query_strings)
+
+    rundir = RunDir(
+        cand_query_dict["sbid"], 
+        f"""{cand_query_dict["scan"]}/{cand_query_dict["tstart"]}""",
+        cand_query_dict["runname"],
     )
 
-    # load summary file...
-    with open("/data/seren-01/big/craco/SB{:0>6}/process_info.json".format(cand_query_strings["sbid"])) as fp:
-        info = json.load(fp)
-    ### load flagchan...
-    return info[runname]["flagchan"]
+    rundir.get_run_params()
+    return rundir.flagant # in strrange
     
+def intlst_to_strrange(intlst):
+    """
+    convert an integer list to a strrange to be readable...
+    """
+    intlst = sorted(list(intlst))
+
+    if len(intlst) == 0: return ""
+
+    splitlst = []
+    for i in range(len(intlst)):
+        if i == 0: tmp = [intlst[0]]
+        elif intlst[i] - intlst[i-1] > 1:
+            splitlst.append(tmp)
+            tmp = [intlst[i]]
+        else: tmp.append(intlst[i])
+            
+    splitlst.append(tmp)
+
+    strrange_ = []
+    for slst in splitlst:
+        if len(slst) == 1: strrange_.append(f"{str(slst[0])}")
+        else: strrange_.append(f"{str(slst[0])}-{slst[-1]}")
+    return ",".join(strrange_)
+
+def _combine_ant_flag(flag1, flag2):
+    if isinstance(flag1, str):
+        flag1 = strrange(flag1)
+    if isinstance(flag2, str):
+        flag2 = strrange(flag2)
+    
+    if flag1 is None: flag1 = []
+    if flag2 is None: flag2 = []
+
+    aflag = list(set(flag1 + flag2))
+    return [a for a in aflag if a <= 30]
+
 ### callbacks
 @callback(
     Output("cand_query_strings", "data"),
     Output("cand_flagchan", "value"),
+    Output("cand_flagant", "value"),
     Input("cand_query_strings", "data"),
 )
 def update_cand_query_strings(cand_query_strings):
@@ -87,9 +129,19 @@ def update_cand_query_strings(cand_query_strings):
         flagchan = None
     cand_query_strings["flagchan"] = flagchan
 
+    try:
+        if cand_query_strings["uvfitspath"] is not None:
+            flagant = _load_flag_ant(cand_query_strings)
+        else:
+            flagant = "25-30"
+    except:
+        flagant = "25-30"
+
+    cand_query_strings["flagant"] = flagchan
+
     # print(cand_query_strings.__str__()) # for debugging purposes
 
-    return cand_query_strings.__str__(), flagchan
+    return cand_query_strings.__str__(), flagchan, flagant
 
 def info_table_row(key, value):
     return html.Tr([
@@ -387,16 +439,18 @@ def craco_icscas_plot(nclick, cand_query_strings):
         Input("craco_cand_plot_btn", "n_clicks"),
         State("cand_query_strings", "data"),
         State("cand_flagchan", "value"),
+        State("cand_flagant", "value"),
     ],
     running=[
         (Output("craco_cand_plot_btn", "disabled"), True, False),
     ],
     prevent_initial_call=True,
 )
-def craco_cand_plot(nclick, cand_query_strings, flagchan):
+def craco_cand_plot(nclick, cand_query_strings, flagchan, flagant):
     cand_query_dict = eval(cand_query_strings)
+    print(cand_query_dict)
     try:
-        crow = {
+        candrow = {
             "ra_deg": float(cand_query_dict["ra"]), "dec_deg": float(cand_query_dict["dec"]),
             "dm_pccm3": float(cand_query_dict["dm"]), "total_sample": int(float(cand_query_dict["totalsample"])),
             "boxc_width": int(float(cand_query_dict["boxcwidth"])), 
@@ -406,47 +460,56 @@ def craco_cand_plot(nclick, cand_query_strings, flagchan):
         # print(err)
         return None, None, "Not enough info..."
 
-    padding = 100
+    padding = 50
 
     ### flag channels...
     if flagchan is not None:
         if flagchan == "": flagchan = None
+    if flagant is not None:
+        if flagant == "": flagant = None
 
-    cand = craco_candidate.Candidate(
-        crow = crow,
-        uvsource = cand_query_dict["uvfitspath"],
-        calibration_file = cand_query_dict["calpath"],
-        workdir=None, padding=padding, planargs="--npix 256 --threshold 6",
-        flag_chans=flagchan,
+    rundir = RunDir(
+        cand_query_dict["sbid"], 
+        f"""{cand_query_dict["scan"]}/{cand_query_dict["tstart"]}""",
+        cand_query_dict["runname"],
     )
-    cand.search_output["obstime_sec"] = cand.search_output["total_sample"] * cand.tsamp
+    # note - wrong antenna will be flagged behind the scene
+    # get run antenna based on the metadata
+    metafant = rundir.scheddir.flagant # this is a list
+    flagant = intlst_to_strrange(_combine_ant_flag(metafant, flagant))
+    print(flagant)
+
+
+    #TODO - get metadata path
+    cand = craco_cand.Cand(
+        uvfits = cand_query_dict['uvfitspath'], 
+        metafile = rundir.scheddir.metafile, 
+        calfile = cand_query_dict['calpath'],
+        start_mjd = Time(rundir.scheddir.start_mjd, format="jd", scale="tai"),
+        flagant = flagant, flagchan=flagchan,
+        **candrow,
+    )
 
     ### make filterbank, image
-    cand._calibrate_data(cand.calibration_file)
-    cand._rotate_vis()
-    cand._normalise_vis()
-    cand._normalise_vis(target=False)
-    cand._load_burst_filterbank()
-    # for images
-    cand._dedisperse_block(dm=cand.search_output["dm_pccm3"])
-    cand._grid_image_data()
+    cand.extract_data(padding=75)
+    cand.process_data(zoom_r=10)
 
     ### filterbank related plot
-    fig, ax = cand.plot_filterbank(dm=0)
+    fig, ax = cand.plot_filtb(dm=0)
     filterbank_zerodm = dbc.Col([
         dbc.Row("dedispered at DM=0", justify="center"),
         dbc.Row(_pltfig2img(fig, style={"width": "100%"})),
         ], width=4
     )
 
-    fig, ax = cand.plot_filterbank(dm=cand.search_output["dm_pccm3"], keepnan=True)
+    fig, ax = cand.plot_filtb(dm=cand.dm_pccm3, keepnan=True)
     filterbank_searchdm = dbc.Col([
-        dbc.Row("dedispered at DM={:.2f}".format(cand.search_output["dm_pccm3"]), justify="center"),
+        dbc.Row("dedispered at DM={:.2f}".format(cand.dm_pccm3), justify="center"),
         dbc.Row(_pltfig2img(fig, style={"width": "100%"})), 
         ], width=4
     )
 
-    fig, ax = cand.plot_dmt()
+    fig, ax = cand.plot_dmt(dmfact=30, ndm=30)
     filterbank_butterfly = dbc.Col([
         dbc.Row("butterfly plot", justify="center"),
         dbc.Row(_pltfig2img(fig, style={"width": "100%"})), 
@@ -454,9 +517,14 @@ def craco_cand_plot(nclick, cand_query_strings, flagchan):
     )
 
     # interactive filterbank plot
-    filterbank_plot, trange_ = cand._dedisperse2tf(dm=cand.search_output["dm_pccm3"], keepnan=True)
-    taxis = np.linspace(*trange_, filterbank_plot.shape[1]) * cand.tsamp
-    faxis = np.linspace(cand.freqs[0]/1e6, cand.freqs[-1]/1e6, filterbank_plot.shape[0])
+    filterbank_plot, trange_ = cand.datasnippet.dedisp_filtb(
+        filtb=cand.filtb, dm=cand.dm_pccm3, keepnan=True,
+        tstart=cand.canduvfits.datarange[0],
+    )
+    taxis = np.linspace(*trange_, filterbank_plot.shape[1]) * cand.canduvfits.tsamp
+    faxis = np.linspace(
+        cand.canduvfits.fmin/1e6, cand.canduvfits.fmax/1e6, filterbank_plot.shape[0]
+    )
 
     fig = px.imshow(
         filterbank_plot, x=taxis, y=faxis, aspect="auto", origin="lower"
@@ -470,7 +538,7 @@ def craco_cand_plot(nclick, cand_query_strings, flagchan):
         )]
     )
     fig.add_vline(
-        x=cand.search_output["obstime_sec"],
+        x=cand.total_sample * cand.canduvfits.tsamp,
         line_width=1, line_dash="dash", line_color="black",
     ) # add vertical line to indicate the burst time
     heatmapfig = dbc.Col(html.Div(dcc.Graph(
@@ -486,7 +554,7 @@ def craco_cand_plot(nclick, cand_query_strings, flagchan):
         go.Scatter(x=taxis, y=np.nanmin(filterbank_plot, axis=0), name="min"),
     ])
     lcfig.add_vline(
-        x=cand.search_output["obstime_sec"],
+        x=cand.total_sample * cand.canduvfits.tsamp,
         line_width=1, line_dash="dash", line_color="red",
     )
     burstlcfig = dbc.Col(html.Div(dcc.Graph(
@@ -514,7 +582,7 @@ def craco_cand_plot(nclick, cand_query_strings, flagchan):
 
     ######### for images
     ### dignostic plots => median and standard deviation
-    fig = cand._make_field_image(save=False)
+    fig = cand.plot_diagnostic_images()
     imgdigplot = dbc.Row([
         _pltfig2img(fig, style={"width": "100%"}),
     ])
@@ -524,7 +592,7 @@ def craco_cand_plot(nclick, cand_query_strings, flagchan):
     stdimg = cand.imgcube.std(axis=0)
 
     linedict, selection_bound_large = _dash_rect_region(
-        cand.search_output["lpix"], cand.search_output["mpix"], 10
+        cand.lpix, cand.mpix, 10
     )
     linedict, selection_bound_small = _dash_rect_region(10, 10, 5)
     fig = px.imshow(stdimg, origin='lower', )
@@ -537,15 +605,8 @@ def craco_cand_plot(nclick, cand_query_strings, flagchan):
 
     # work out the limits during the detection...
     # detection is through imgidx_s to imgidx_e
-    _dets = cand.search_output["total_sample"]
-    _viss = cand.visrange[0]
-
-    imgidx_e = _dets - _viss
-    imgidx_s = imgidx_e - cand.search_output["boxc_width"]
     ## detections are ...
-    img_detected = cand.imgcube[imgidx_s:imgidx_e + 1]
     imagestd = cand.imgcube.std()
-
     stdmed = np.median(stdimg)
 
     fig = px.imshow(
@@ -554,11 +615,20 @@ def craco_cand_plot(nclick, cand_query_strings, flagchan):
         origin="lower",
     )
     fig.add_shape(linedict, **selection_bound_small)
-    fig.update_layout(title=dict(text="zoom-in images (inter)\ndetected {}-{}".format(imgidx_s, imgidx_e), x=0.5, xanchor="center"))
+    fig.update_layout(
+        title=dict(text="zoom-in images (inter)\ndetected {}-{}".format(
+            cand.image_start_index, cand.image_end_index
+        ), 
+        x=0.5, xanchor="center")
+    )
     zoomfig = dbc.Col([
         # dbc.Row("zoom-in images", justify="center"),
         dbc.Row(html.Div(dcc.Graph(figure=fig, ))),
     ], width=4)
+
+    img_detected = cand.imgcube[
+        cand.image_start_index:cand.image_end_index + 1
+    ]
 
     fig = px.imshow(
         img_detected.mean(axis=0) / stdmed / np.sqrt(img_detected.shape[0]), # take the mean image over detected period
@@ -601,46 +671,63 @@ def craco_cand_plot(nclick, cand_query_strings, flagchan):
         Input("craco_cand_large_plot_btn", "n_clicks"),
         State("cand_query_strings", "data"),
         State("cand_flagchan", "value"),
+        State("cand_flagant", "value"),
     ],
     running = [
         (Output("craco_cand_large_plot_btn", "disabled"), True, False),
     ],
     prevent_initial_call=True,
 )
-def craco_cand_large_plot(nclick, cand_query_strings, flagchan):
+def craco_cand_large_plot(nclick, cand_query_strings, flagchan, flagant):
     # again move it to the top callback once we have a light version plan
     cand_query_dict = eval(cand_query_strings)
-    crow = {
+    candrow = {
         "ra_deg": float(cand_query_dict["ra"]), "dec_deg": float(cand_query_dict["dec"]),
         "dm_pccm3": float(cand_query_dict["dm"]), "total_sample": int(float(cand_query_dict["totalsample"])),
         "boxc_width": int(float(cand_query_dict["boxcwidth"])), 
-        "lpix": int(float(cand_query_dict["lpix"])), "mpix": int(float(cand_query_dict["mpix"]))
+        "lpix": 128 + int(float(cand_query_dict["lpix"])), 
+        "mpix": 128 + int(float(cand_query_dict["mpix"]))
     }
 
-    padding = 100
+    padding = 50
 
     ### flag channels...
     if flagchan is not None:
         if flagchan == "": flagchan = None
+    if flagant is not None:
+        if flagant == "": flagant = None
 
-    cand = craco_candidate.Candidate(
-        crow = crow,
-        uvsource = cand_query_dict["uvfitspath"],
-        calibration_file = cand_query_dict["calpath"],
-        workdir=None, padding=padding, planargs="--fov 2.2d,2.2d --npix 512 --threshold 6",
-        flag_chans=flagchan,
-
+    rundir = RunDir(
+        cand_query_dict["sbid"], 
+        f"""{cand_query_dict["scan"]}/{cand_query_dict["tstart"]}""",
+        cand_query_dict["runname"],
     )
-    cand.search_output["obstime_sec"] = cand.search_output["total_sample"] * cand.tsamp
+    # note - wrong antenna will be flagged behind the scene
+    # get run antenna based on the metadata
+    metafant = rundir.scheddir.flagant # this is a list
+    flagant = intlst_to_strrange(_combine_ant_flag(metafant, flagant))
+    # print(flagant)
 
-    cand._calibrate_data(cand.calibration_file)
-    cand._normalise_vis(target=False)
-    cand._dedisperse_block(dm=cand.search_output["dm_pccm3"])
-    cand._grid_image_data()
+
+    cand = craco_cand.Cand(
+        uvfits = cand_query_dict['uvfitspath'], 
+        metafile = rundir.scheddir.metafile, 
+        calfile = cand_query_dict['calpath'],
+        start_mjd = Time(rundir.scheddir.start_mjd, format="jd", scale="tai"),
+        flagant = flagant, flagchan=flagchan,
+        **candrow,
+    )
+
+    ### make filterbank, image
+    cand.extract_data(padding=75)
+    lplan = craco_plan.PipelinePlan(
+        cand.canduvfits.datauvsource, "--ndm 2 --npix 512 --fov 2.2d",
+    )
+    cand.process_data(plan=lplan, zoom_r=10)
 
     ### three interactive images again... but a larger version
-    _mpix = 128 + crow["mpix"]; _lpix = 128 + crow["lpix"]
-    linedict, selection_bound_large = _dash_rect_region(_lpix, _mpix, 10)
+    # _mpix = 128 + cand.mpix; _lpix = 128 + cand.lpix
+    linedict, selection_bound_large = _dash_rect_region(cand.lpix,cand.mpix, 10)
     linedict, selection_bound_small = _dash_rect_region(10, 10, 5)
 
     ### snr image
@@ -652,23 +739,23 @@ def craco_cand_large_plot(nclick, cand_query_strings, flagchan):
     snrfig = dbc.Col([dbc.Row(html.Div(dcc.Graph(figure=fig)))], width=4)
 
     ### detection things
-    _dets = cand.search_output["total_sample"]; _viss = cand.visrange[0]
-    imgidx_e = _dets - _viss; imgidx_s = imgidx_e - cand.search_output["boxc_width"]
 
-    img_detected = cand.imgcube[imgidx_s:imgidx_e + 1]
+    img_detected = cand.imgcube[
+        cand.image_start_index:cand.image_end_index + 1
+    ]
     imagestd = cand.imgcube.std()
     stdmed = np.median(stdimg)
 
     ### make new cube...
-    cand.imgzoomcube = cand.imgcube[
-        :, cand._workout_slice_w_center(_mpix, 512, 10), cand._workout_slice_w_center(_lpix, 512, 10)
-    ] # this is a bit hard coding here...
+    # cand.imgzoomcube = cand.imgcube[
+    #     :, cand._workout_slice_w_center(_mpix, 512, 10), cand._workout_slice_w_center(_lpix, 512, 10)
+    # ] # this is a bit hard coding here...
 
     fig = px.imshow(
         cand.imgzoomcube, animation_frame=0, zmax=imagestd * 8, zmin=-imagestd, origin="lower"
     )
     fig.add_shape(linedict, **selection_bound_small)
-    fig.update_layout(title=dict(text="zoom-in images (inter)\ndetected {}-{}".format(imgidx_s, imgidx_e), x=0.5, xanchor="center"))
+    fig.update_layout(title=dict(text="zoom-in images (inter)\ndetected {}-{}".format(cand.image_start_index, cand.image_end_index), x=0.5, xanchor="center"))
     zoomfig = dbc.Col([dbc.Row(html.Div(dcc.Graph(figure=fig, )))], width=4)
 
     fig = px.imshow(
@@ -808,8 +895,14 @@ def layout(**cand_query_strings):
                 dbc.Col(html.H5("Candidate CRACO Data"), width=3),
                 dbc.Col(dbc.Button("Process", id="craco_cand_plot_btn", color="success"), width=3),
                 dbc.Col(dcc.Loading(id="craco_cand_plot_status", fullscreen=False)),
+            ]),
+            dbc.Row([
                 dbc.Col(dbc.Row([
-                    dbc.Col(html.P("FLAG"), width=6), 
+                    dbc.Col(html.P("FANT"), width=3), 
+                    dbc.Col(dcc.Input(id="cand_flagant", type="text", placeholder="strrange"), width=6),
+                ]), width=3),
+                dbc.Col(dbc.Row([
+                    dbc.Col(html.P("FCHAN"), width=3), 
                     dbc.Col(dcc.Input(id="cand_flagchan", type="text", placeholder="strrange"), width=6),
                 ]), width=3),
             ]),

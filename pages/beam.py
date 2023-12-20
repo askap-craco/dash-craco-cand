@@ -353,7 +353,7 @@ def clicked_candidate_table(
         nsample = clicked_df.iloc[0]["totalsample"]
     
         ### what is the url?
-        candurl = "/candidate?sbid={}&beam={}&scan={}&tstart={}&results={}&dm={}&boxcwidth={}&lpix={}&mpix={}&totalsample={}&ra={}&dec={}".format(
+        candurl = "/candidate?sbid={}&beam={}&scan={}&tstart={}&runname={}&dm={}&boxcwidth={}&lpix={}&mpix={}&totalsample={}&ra={}&dec={}".format(
             beam_query_dict["sbid"], beam_query_dict["beam"], beam_query_dict["scan"], beam_query_dict["tstart"],
             beam_query_dict["runname"], clickedrow["dmpccm"], int(clickedrow["boxcwidth"]), int(clickedrow["lpix"]), int(clickedrow["mpix"]),
             int(clickedrow["totalsample"]), clickedrow["ra"], clickedrow["dec"],

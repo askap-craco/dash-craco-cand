@@ -281,7 +281,8 @@ def find_file(
         scantime = None
     else: scantime = f"{scan}/{tstart}"
 
-    rundir = RunDir(sbid, scantime, runname)
+    try: rundir = RunDir(sbid, scantime, runname)
+    except: return None
     if not _check_file(rundir.run_head_dir): return None
     
     ### for uvfits file
@@ -326,7 +327,7 @@ def _extract_beam_candfile(candfile):
     extract beam information based on the candidate file name
     """
     candfile = candfile.split("/")[-1]
-    candfile = candfile.replace(".uniq.csv", "")
+    candfile = candfile.replace(".uniq", "")
     try:
         return int(candfile[-6:-4])
     except:
@@ -339,6 +340,8 @@ def construct_candinfo(query_dict):
         boxcwidth=None, totalsample=None, ra=None, dec=None,
     )
     query_dict = _update_default_dict(query_dict, default_dict)
+
+    print(query_dict)
 
     query_dict["unclustpath"] = find_file("cand_raw", query_dict)
     query_dict["clustpath"] = find_file("cand_cls", query_dict)

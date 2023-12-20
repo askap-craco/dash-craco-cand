@@ -11,4 +11,4 @@ fi
 
 mkdir -p Log
 celery -A app.celery_app worker --loglevel=INFO >> Log/celery_info.log 2>&1 &
-gunicorn --workers=12 --name=craco --bind=127.0.0.1:8023 app:server >> Log/gunicorn.log 2>&1
+gunicorn --workers=12 --name=craco --bind=127.0.0.1:8024 app:server >> Log/gunicorn.log 2>&1
