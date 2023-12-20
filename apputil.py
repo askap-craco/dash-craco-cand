@@ -14,6 +14,7 @@ import base64
 import glob
 
 from craft import sigproc
+from craco.datadirs import DataDirs, SchedDir, ScanDir, RunDir, format_sbid
 
 # load password pairs
 def load_password(fname):
@@ -253,85 +254,61 @@ def find_file(
     scan = query_dict["scan"]; tstart = query_dict["tstart"]
     runname = query_dict["runname"]; scanpath = query_dict["scanpath"]
 
+    ### note scan path from scan/tstart/runname..
+
     if sbid is None or beam is None:
         return None
-
-    ### reformat sbid
-    if isinstance(sbid, int):
-        sbid = str(sbid)
-    if sbid.startswith("SB"):
-        sbid = sbid[2:]
-    sbid = "SB{:0>6}".format(sbid)
 
     ### reformat beam
     beam = "{:0>2}".format(beam)
 
+    if scanpath is not None:
+        if not scanpath.endswith("/"):
+            scanpath += "/"
+        ddirs = DataDirs()
+        scan, tstart = ddirs.path_to_scan(scanpath).split("/")
+        runname = ddirs.path_to_runname(scanpath)
+
+    scheddir = SchedDir(sbid)
     ### if you are looking for the calibration file, you don't need to worry about something else
     if filetype == "cal":
-        calfile = f"/data/seren-01/big/craco/{sbid}/cal/{beam}/b{beam}.aver.4pol.smooth.npy"
+        calfile = scheddir.beam_cal_path(beam)
         if _check_file(calfile): return calfile
         return None
 
-    if scanpath is None:
-        scanpath = _find_scanpath(sbid, scan, tstart, runname)
-        if scanpath is None: return None
-    else:
-        if not _check_scanpath(sbid, scanpath): return None
+    ### get rundir
+    if scan is None or tstart is None:
+        scantime = None
+    else: scantime = f"{scan}/{tstart}"
+
+    rundir = RunDir(sbid, scantime, runname)
+    if not _check_file(rundir.run_head_dir): return None
     
-    # use scanpath from now
-    scandir = f"/data/seren-??/big/craco/{sbid}/scans/{scanpath}"
     ### for uvfits file
     if filetype == "uvfits":
-        uvfitsfiles = glob.glob(f"{scandir}/b{beam}.uvfits")
-        if len(uvfitsfiles) == 0: return None
-        return uvfitsfiles[0]
+        uvfitsfile = rundir.scandir.beam_uvfits_path(beam)
+        if not _check_file(uvfitsfile): return None
+        return uvfitsfile
 
     if filetype == "ics":
-        icsfiles = glob.glob(f"{scandir}/ics_b{beam}.fil")
-        if len(icsfiles) == 0: return None
-        return icsfiles[0]
+        icsfile = rundir.scandir.beam_ics_path(beam)
+        if not _check_file(icsfile): return None
+        return icsfile
 
     if filetype == "cas":
-        casfiles = glob.glob(f"{scandir}/cas_b{beam}.fil")
-        if len(casfiles) == 0: return None
-        return casfiles[0]
+        return None # no available CAS now
 
     ### for clustered candidates
     if filetype == "cand_raw":
-        # there are two different format...
-        candfiles = glob.glob(f"{scandir}/candidates.b{beam}.txt")
-        if len(candfiles) == 0:
-            candfiles = glob.glob(f"{scandir}/candidates.txtb{beam}")
-            if len(candfiles) == 0: return None
-        return candfiles[0] # assume this is the only file...
+        candfile = rundir.beam_candidate(beam)
+        if not _check_file(candfile): return None
+        return candfile
 
     ### for clustered candidates
     if filetype == "cand_cls":
-        candfiles = glob.glob(f"{scandir}/clustering_output/candidates.b{beam}.txt.uniq*")
-        if len(candfiles) == 0:
-            candfiles = glob.glob(f"{scandir}/clustering_output/candidates.txtb{beam}.uniq*")
-            if len(candfiles) == 0: return None
-        return candfiles[0] # assume this is the only file...
-    
-
-def _find_scanpath(sbid, scan=None, tstart=None, runname=None):
-    """
-    find scanpath based on sbid
-    """
-    if scan is None: scan = "*"
-    if tstart is None: tstart = "*"
-    if runname is None: runname = "results"
-    
-    beamfiles = glob.glob(f"/data/seren-??/big/craco/{sbid}/scans/{scan}/{tstart}/{runname}/")
-    if len(beamfiles) == 0: 
-        beamfiles = glob.glob(f"/data/seren-??/big/craco/{sbid}/scans/{scan}/{tstart}/*/")
-        if len(beamfiles) == 0: return None
-    return "/".join(beamfiles[0].split("/")[7:10])
-
-def _check_scanpath(sbid, scanpath):
-    scans = glob.glob(f"/data/seren-??/big/craco/{sbid}/scans/{scanpath}/")
-    if len(scans) == 0: return False
-    return True
+        uniqcandfile = rundir.beam_unique_cand(beam)
+        if not _check_file(uniqcandfile): return None
+        return uniqcandfile
 
 def _check_file(filepath):
     if os.path.exists(filepath): return True
@@ -349,9 +326,8 @@ def _extract_beam_candfile(candfile):
     extract beam information based on the candidate file name
     """
     candfile = candfile.split("/")[-1]
-    candfile = candfile.replace(".uniq", "")
+    candfile = candfile.replace(".uniq.csv", "")
     try:
-        if "txtb" in candfile: return int(candfile[-2:])
         return int(candfile[-6:-4])
     except:
         return None
@@ -386,16 +362,17 @@ def construct_beaminfo(query_dict):
         query_dict["fname"] = find_file("cand_cls", query_dict) if query_dict["unique"] else find_file("cand_raw", query_dict)
 
     fname = query_dict["fname"].replace(".csv", "")
-    fnamesplit = fname.split("/")
+    # fnamesplit = fname.split("/")
     ### it will update all other information based on the fname
+    ddir = DataDirs()
     newdict = dict(
-        unique = True if fname.endswith("uniq") else False,
+        unique = True if fname.endswith(".uniq") else False,
         beam = _extract_beam_candfile(fname),
-        sbid = int(fnamesplit[5][2:]),
-        scan = fnamesplit[7],
-        tstart = fnamesplit[8],
-        runname = fnamesplit[9],
-        scanpath = f"{fnamesplit[7]}/{fnamesplit[8]}/{fnamesplit[9]}"
+        sbid = int(ddir.path_to_sbid(fname)[2:]),
+        scan = ddir.path_to_scan(fname).split("/")[0],
+        tstart = ddir.path_to_scan(fname).split("/")[1],
+        runname = ddir.path_to_runname(fname),
+        scanpath = f"{ddir.path_to_scan(fname)}/{ddir.path_to_runname(fname)}"
     )
     query_dict.update(newdict)
 
