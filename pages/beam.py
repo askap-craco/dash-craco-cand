@@ -169,7 +169,7 @@ def crossfilter_plot(
     )
 
     time_snr_scatter.update_layout(
-        coloraxis=dict(cmax=40, cmin=0),
+        coloraxis=dict(cmax=250, cmin=0),
         dragmode="select",
         newselection_mode="gradual",
     )
@@ -194,7 +194,7 @@ def crossfilter_plot(
     location_scatter.update_xaxes(range=(-0.5, 256.5), )
     location_scatter.update_yaxes(range=(-0.5, 256.5), )
     location_scatter.update_layout(
-        coloraxis=dict(cmax=40, cmin=0),
+        coloraxis=dict(cmax=250, cmin=0),
         dragmode="select",
         newselection_mode="gradual",
     )
@@ -299,7 +299,7 @@ def loc_sample_plot(
     loctime_scatter.update_xaxes(range=(-0.5, 256.5), )
     loctime_scatter.update_yaxes(range=(-0.5, 256.5), )
     loctime_scatter.update_layout(
-        coloraxis=dict(cmax=40, cmin=0),
+        coloraxis=dict(cmax=250, cmin=0),
     )
 
     return loctime_scatter
