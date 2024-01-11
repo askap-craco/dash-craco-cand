@@ -702,6 +702,7 @@ def craco_cand_large_plot(nclick, cand_query_strings, flagchan, flagant):
         f"""{cand_query_dict["scan"]}/{cand_query_dict["tstart"]}""",
         cand_query_dict["runname"],
     )
+    rundir.get_run_params()
     # note - wrong antenna will be flagged behind the scene
     # get run antenna based on the metadata
     metafant = rundir.scheddir.flagant # this is a list
@@ -713,7 +714,8 @@ def craco_cand_large_plot(nclick, cand_query_strings, flagchan, flagant):
         uvfits = cand_query_dict['uvfitspath'], 
         metafile = rundir.scheddir.metafile, 
         calfile = cand_query_dict['calpath'],
-        start_mjd = Time(rundir.scheddir.start_mjd, format="jd", scale="tai"),
+        # start_mjd = Time(rundir.scheddir.start_mjd, format="jd", scale="tai"),
+        start_mjd = Time(eval(rundir.startmjd), format="jd", scale="tai"),
         flagant = flagant, flagchan=flagchan,
         **candrow,
     )
