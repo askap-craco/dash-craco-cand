@@ -243,7 +243,7 @@ def find_file(
         if scanpath provided, it will ignore all remaining three parameters
         if none is provided, we will search for results scan
     """
-    assert filetype in ["cand_raw", "cand_cls", "cal", "uvfits", "ics", "cas"], "not an avialable file type..."
+    assert filetype in ["cand_raw", "cand_cls", "cal", "uvfits", "ics", "cas", "meta"], "not an avialable file type..."
 
     default_dict = dict(
         sbid=None, beam=None, scan=None, tstart=None,
@@ -311,6 +311,11 @@ def find_file(
         if not _check_file(uniqcandfile): return None
         return uniqcandfile
 
+    if filetype == "meta":
+        metafile = rundir.scheddir.metafile
+        if not _check_file(metafile): return None
+        return metafile
+
 def _check_file(filepath):
     if os.path.exists(filepath): return True
     return False
@@ -341,7 +346,7 @@ def construct_candinfo(query_dict):
     )
     query_dict = _update_default_dict(query_dict, default_dict)
 
-    print(query_dict)
+    # print(query_dict)
 
     query_dict["unclustpath"] = find_file("cand_raw", query_dict)
     query_dict["clustpath"] = find_file("cand_cls", query_dict)
@@ -349,6 +354,7 @@ def construct_candinfo(query_dict):
     query_dict["uvfitspath"] = find_file("uvfits", query_dict)
     query_dict["icspath"] = find_file("ics", query_dict)
     query_dict["caspath"] = find_file("cas", query_dict)
+    query_dict["metapath"] = find_file("meta", query_dict)
 
     return query_dict
 

@@ -804,6 +804,13 @@ def rescale_filterbank(heatmapfig, nclicks, slidervalue):
 )
 def printout_files(cand_query_strings):
     cand_query_dict = eval(cand_query_strings)
+    metarow = html.Tr([
+        html.Td(html.B("METAFILE")),
+        html.Td([
+            html.Abbr(cand_query_dict["metapath"], id="cand_meta_path"),
+            dcc.Clipboard(target_id="cand_meta_path", title="copy", style = {"display": "inline-block"})
+        ]),
+    ])
     uvfitsrow = html.Tr([
         html.Td(html.B("UVFITS")),
         html.Td([
@@ -828,12 +835,12 @@ def printout_files(cand_query_strings):
     unclustrow = html.Tr([
         html.Td(html.B("UNCLUST")),
         html.Td([
-            html.Abbr(cand_query_dict["unclustpath"], id="uncand_clust_path"),
+            html.Abbr(cand_query_dict["unclustpath"], id="cand_unclust_path"),
             dcc.Clipboard(target_id="cand_unclust_path", title="copy", style = {"display": "inline-block"})
         ]),
     ])
     return dbc.Col(dbc.Table(html.Tbody([
-        uvfitsrow, calrow, clustrow, unclustrow
+        metarow, uvfitsrow, calrow, clustrow, unclustrow
     ]), borderless=True, color="light"), width=10)
 
 def _back_cand_btn(cand_query_strings, unique=True):
