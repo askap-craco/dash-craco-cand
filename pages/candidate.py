@@ -494,7 +494,7 @@ def craco_cand_plot(nclick, cand_query_strings, flagchan, flagant, padding):
     )
 
     ### make filterbank, image
-    cand.extract_data(padding=75)
+    cand.extract_data(padding=padding)
     cand.process_data(zoom_r=10)
 
     ### filterbank related plot
@@ -725,7 +725,7 @@ def craco_cand_large_plot(nclick, cand_query_strings, flagchan, flagant, padding
     )
 
     ### make filterbank, image
-    cand.extract_data(padding=75)
+    cand.extract_data(padding=padding)
     lplan = craco_plan.PipelinePlan(
         cand.canduvfits.datauvsource, "--ndm 2 --npix 512 --fov 2.2d",
     )
@@ -920,7 +920,7 @@ def layout(**cand_query_strings):
                 ]), width=3),
                 dbc.Col(dbc.Row([
                     dbc.Col(html.P("PADDING"), width=3), 
-                    dbc.Col(dcc.Input(id="cand_pad", type="number", value=50, placeholder="number - default 50"), width=6),
+                    dbc.Col(dcc.Input(id="cand_pad", type="number", value=75, placeholder="number - default 50"), width=6),
                 ]), width=3),
             ]),
             dbc.Row(id="craco_candidate_filterbank"),
