@@ -440,13 +440,14 @@ def craco_icscas_plot(nclick, cand_query_strings):
         State("cand_query_strings", "data"),
         State("cand_flagchan", "value"),
         State("cand_flagant", "value"),
+        State("cand_pad", "value"),
     ],
     running=[
         (Output("craco_cand_plot_btn", "disabled"), True, False),
     ],
     prevent_initial_call=True,
 )
-def craco_cand_plot(nclick, cand_query_strings, flagchan, flagant):
+def craco_cand_plot(nclick, cand_query_strings, flagchan, flagant, padding):
     cand_query_dict = eval(cand_query_strings)
     print(cand_query_dict)
     try:
@@ -460,7 +461,7 @@ def craco_cand_plot(nclick, cand_query_strings, flagchan, flagant):
         # print(err)
         return None, None, "Not enough info..."
 
-    padding = 50
+    if padding is None: padding = 50
 
     ### flag channels...
     if flagchan is not None:
@@ -674,13 +675,14 @@ def craco_cand_plot(nclick, cand_query_strings, flagchan, flagant):
         State("cand_query_strings", "data"),
         State("cand_flagchan", "value"),
         State("cand_flagant", "value"),
+        State("cand_pad", "value"),
     ],
     running = [
         (Output("craco_cand_large_plot_btn", "disabled"), True, False),
     ],
     prevent_initial_call=True,
 )
-def craco_cand_large_plot(nclick, cand_query_strings, flagchan, flagant):
+def craco_cand_large_plot(nclick, cand_query_strings, flagchan, flagant, padding):
     # again move it to the top callback once we have a light version plan
     cand_query_dict = eval(cand_query_strings)
     candrow = {
@@ -691,7 +693,7 @@ def craco_cand_large_plot(nclick, cand_query_strings, flagchan, flagant):
         "mpix": 128 + int(float(cand_query_dict["mpix"]))
     }
 
-    padding = 50
+    if padding is None: padding = 50
 
     ### flag channels...
     if flagchan is not None:
@@ -915,6 +917,10 @@ def layout(**cand_query_strings):
                 dbc.Col(dbc.Row([
                     dbc.Col(html.P("FCHAN"), width=3), 
                     dbc.Col(dcc.Input(id="cand_flagchan", type="text", placeholder="strrange"), width=6),
+                ]), width=3),
+                dbc.Col(dbc.Row([
+                    dbc.Col(html.P("PADDING"), width=3), 
+                    dbc.Col(dcc.Input(id="cand_pad", type="number", value=50, placeholder="number - default 50"), width=6),
                 ]), width=3),
             ]),
             dbc.Row(id="craco_candidate_filterbank"),
