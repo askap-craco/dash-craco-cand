@@ -874,6 +874,109 @@ def _back_cand_btn(cand_query_strings, unique=True):
         # print(error)
         return None
 
+###### keep and rclone stuff here
+@callback(
+    inputs = [
+        Input("craco_keep_btn", "n_clicks"),
+        State("craco_keep_option", "value"),
+        State("cand_query_strings", "data"),
+    ],
+    output = [
+        Output("craco_keep_status", "children"),
+    ],
+    prevent_initial_call=True,
+)
+# def keep_files(nclick, optvalue, cand_query_strings):
+def archive_candidate_data(nclick, optvalue, cand_query_strings):
+    cand_query_dict = eval(cand_query_strings)
+    ### push candidate to candidate file
+    _store_candidate(cand_query_dict)
+    ### update archive scans
+    # scans = _check_archive_file(cand_query_dict, keepopt=optvalue)
+    scans = _make_archive_file(cand_query_dict, keepopt=optvalue)
+    # print(cand_query_dict)
+    print(scans)
+    ### here is the part you are gonna launch several tsp jobs...
+    return [f"""{len(scans)} scans to be archived - {", ".join(scans)}"""]
+
+# functions for archiving files
+def _rclone_scan(cand_query_dict):
+    pass
+
+def _make_archive_file(cand_query_dict, keepopt=1):
+    """
+    the format of the archive file should be stored under 
+    /CRACO/DATA_00/craco/SB0xxxxx/ARCHIVE
+
+    ARCHIVE file should be in a format of csv, following are the columns
+    scan,tstart,beam
+    """
+    scheddir = SchedDir(cand_query_dict["sbid"])
+    beam = cand_query_dict["beam"]
+    archive_fname = f"{scheddir.sched_head_dir}/ARCHIVE"
+    if not os.path.exists(archive_fname):
+        fp = open(archive_fname, "w")
+        fp.write("scan,tstart,beam\n")
+        fp.close()
+    fp = open(archive_fname, "a")
+    scans = _check_archive_file(cand_query_dict, keepopt=keepopt)
+    for scan in scans:
+        _write_scan(fp, scan, beam)
+    ### check if this scan are already there
+    fp.close()
+    return scans
+
+def __get_archive_scans(cand_query_dict, keepopt=1):
+    if keepopt == 1:
+        return [f"""{cand_query_dict["scan"]}/{cand_query_dict["tstart"]}"""]
+    scan = cand_query_dict["scan"]
+    scheddir = SchedDir(cand_query_dict["sbid"])
+    scans = [i for i in scheddir.scans if i.startswith(scan)]
+    return scans
+
+def __check_df_scans(df, beam, scans):
+    beamdf = df[df["beam"] == int(beam)]
+    return [scan for scan in scans if not __check_df_scan(beamdf, scan)]
+
+def __check_df_scan(df, scan):
+    scan, tstart = scan.split("/")
+    dfscan = df[(df["scan"] == int(scan)) & (df["tstart"] == int(tstart))]
+    if len(dfscan) == 0: return False
+    return True
+
+def _check_archive_file(cand_query_dict, keepopt=1):
+    """
+    this function checks if there is any new scan need to be archived
+    """
+    scheddir = SchedDir(cand_query_dict["sbid"])
+    beam = cand_query_dict["beam"]
+    archive_fname = f"{scheddir.sched_head_dir}/ARCHIVE"
+    ### get a list of scans should be archived first
+    scans = __get_archive_scans(cand_query_dict, keepopt=keepopt)
+    ### check if these scans are in database
+    scankept_df = pd.read_csv(archive_fname)
+    return __check_df_scans(scankept_df, beam, scans)
+
+def _write_scan(fp, scan, beam):
+    """
+    write scan information to the ARCHIVE file...
+    """
+    scan, tstart = scan.split("/")
+    fp.write(f"{scan},{tstart},{beam}\n")
+
+def _store_candidate(cand_query_dict):
+    scheddir = SchedDir(cand_query_dict["sbid"])
+    cand_fname = f"{scheddir.sched_head_dir}/KEEP_CAND"
+    if not os.path.exists(cand_fname):
+        fp = open(cand_fname, "w")
+        fp.write("scan,tstart,beam,dm,boxcwidth,lpix,mpix,totalsample,ra,dec\n")
+        fp.close()
+    
+    fp = open(cand_fname, "a")
+    d = cand_query_dict
+    fp.write(f"""{d["scan"]},{d["tstart"]},{d["beam"]},{d["dm"]},{d["boxcwidth"]},{d["lpix"]},{d["mpix"]},{d["totalsample"]},{d["ra"]},{d["dec"]}\n""")
+    fp.close()
+
 ### final layout
 def layout(**cand_query_strings):
     # print(cand_query_strings)
@@ -933,6 +1036,19 @@ def layout(**cand_query_strings):
             dbc.Row(dbc.Container([
                 dbc.Container(id="craco_candidate_larger_images_div"),
             ]), id="craco_candidate_larger_images"),
+            ##### layout for keep buttons
+            html.Hr(),
+            dbc.Row(dbc.Container([
+                dbc.Col(dbc.Button("KEEP", id="craco_keep_btn", color="success"), width=3),
+                dbc.Col(dbc.RadioItems(
+                    options=[
+                        {"label": "scan", "value": 1},
+                        {"label": "sbid", "value": 2},
+                    ],
+                    value=1, id="craco_keep_option", inline=True,
+                 ),width=9),
+                dbc.Col(dcc.Loading(id="craco_keep_status", fullscreen=False)),
+            ]), )
         ])),
         dbc.Container(dbc.Row([
             html.Div(id="cand_test_div"),
