@@ -9,6 +9,7 @@ import dash_bootstrap_components as dbc
 from dash.exceptions import PreventUpdate
 import dash
 
+import subprocess
 import os
 import glob
 import json
@@ -897,11 +898,26 @@ def archive_candidate_data(nclick, optvalue, cand_query_strings):
     # print(cand_query_dict)
     print(scans)
     ### here is the part you are gonna launch several tsp jobs...
+    for scan in scans:
+        pid = _rclone_scan(cand_query_dict, scan)
+
     return [f"""{len(scans)} scans to be archived - {", ".join(scans)}"""]
 
 # functions for archiving files
-def _rclone_scan(cand_query_dict):
-    pass
+def _rclone_scan(cand_query_dict, scan):
+    ecopy = os.environ.copy()
+    ecopy['TS_SOCKET'] = "/data/craco/craco/tmpdir/queues/archive"
+
+    sbid = cand_query_dict["sbid"]
+    # scan = f"""{cand_query_dict["scan"]}/{cand_query_dict["tstart"]}"""
+    beam = cand_query_dict["beam"]
+    node = int(cand_query_dict["uvfitspath"].split("/")[2][-2:])
+    cmd = "/CRACO/SOFTWARE/craco/craftop/softwares/craco_run/archive_scan.sh"
+
+    archive_cmd = f"tsp {cmd} {sbid} {scan} {beam} {node}"
+
+    p = subprocess.run([archive_cmd], shell=True, capture_output=True, text=True, env=ecopy)
+    return int(p.stdout.strip())
 
 def _make_archive_file(cand_query_dict, keepopt=1):
     """
