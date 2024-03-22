@@ -880,6 +880,7 @@ def _back_cand_btn(cand_query_strings, unique=True):
     inputs = [
         Input("craco_keep_btn", "n_clicks"),
         State("craco_keep_option", "value"),
+        State("archive_comment", "value"),
         State("cand_query_strings", "data"),
     ],
     output = [
@@ -888,7 +889,7 @@ def _back_cand_btn(cand_query_strings, unique=True):
     prevent_initial_call=True,
 )
 # def keep_files(nclick, optvalue, cand_query_strings):
-def archive_candidate_data(nclick, optvalue, cand_query_strings):
+def archive_candidate_data(nclick, optvalue, comment, cand_query_strings):
     cand_query_dict = eval(cand_query_strings)
     ### push candidate to candidate file
     _store_candidate(cand_query_dict)
@@ -899,12 +900,12 @@ def archive_candidate_data(nclick, optvalue, cand_query_strings):
     print(scans)
     ### here is the part you are gonna launch several tsp jobs...
     for scan in scans:
-        pid = _rclone_scan(cand_query_dict, scan)
+        pid = _rclone_scan(cand_query_dict, scan, comment)
 
     return [f"""{len(scans)} scans to be archived - {", ".join(scans)}"""]
 
 # functions for archiving files
-def _rclone_scan(cand_query_dict, scan):
+def _rclone_scan(cand_query_dict, scan, comment):
     ecopy = os.environ.copy()
     ecopy['TS_SOCKET'] = "/data/craco/craco/tmpdir/queues/archive"
 
@@ -914,7 +915,10 @@ def _rclone_scan(cand_query_dict, scan):
     node = int(cand_query_dict["uvfitspath"].split("/")[2][-2:])
     cmd = "/CRACO/SOFTWARE/craco/craftop/softwares/craco_run/archive_scan.sh"
 
-    archive_cmd = f"tsp {cmd} {sbid} {scan} {beam} {node}"
+    if comment is None:
+        comment = "NO COMMENT..."
+
+    archive_cmd = f"tsp {cmd} {sbid} {scan} {beam} {node} '{comment}'"
 
     p = subprocess.run([archive_cmd], shell=True, capture_output=True, text=True, env=ecopy)
     return int(p.stdout.strip())
@@ -1056,6 +1060,10 @@ def layout(**cand_query_strings):
             html.Hr(),
             dbc.Row(dbc.Container([
                 dbc.Col(dbc.Button("KEEP", id="craco_keep_btn", color="success"), width=3),
+                dbc.Col(dbc.Row([
+                    dbc.Col(html.P("comment"), width=3),
+                    dbc.Col(dcc.Input(id="archive_comment", type="text", placeholder="FRB..."), width=6),
+                ])),
                 dbc.Col(dbc.RadioItems(
                     options=[
                         {"label": "scan", "value": 1},
