@@ -438,8 +438,8 @@ def fixuvfits(fitsfile):
 
 # craco candidate related plotting
 # https://stackoverflow.com/a/75437616
-# @app.long_callback(
-@callback( # for debug purposes...
+@app.long_callback(
+# @callback( # for debug purposes...
     output=[
         Output("craco_candidate_filterbank", "children"),
         Output("craco_candidate_images", "children"),
