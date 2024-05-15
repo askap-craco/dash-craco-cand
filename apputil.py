@@ -283,7 +283,8 @@ def find_file(
 
     try: rundir = RunDir(sbid, scantime, runname)
     except: return None
-    if not _check_file(rundir.run_head_dir): return None
+    ### for the realtime - it won't create run_head_dir...
+    # if not _check_file(rundir.run_head_dir): return None
     
     ### for uvfits file
     if filetype == "uvfits":
@@ -317,6 +318,7 @@ def find_file(
         return metafile
 
 def _check_file(filepath):
+    if filepath is None: return False
     if os.path.exists(filepath): return True
     return False
 

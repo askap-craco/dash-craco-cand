@@ -33,7 +33,7 @@ from apputil import (
 
 # from craco import craco_candidate
 from craft import craco_plan
-from craco import craco_cand
+from craco import craco_cand, fixuvfits
 from craco.datadirs import DataDirs, SchedDir, ScanDir, RunDir, format_sbid
 from craft.cmdline import strrange
 
@@ -429,6 +429,7 @@ def craco_icscas_plot(nclick, cand_query_strings):
 # craco candidate related plotting
 # https://stackoverflow.com/a/75437616
 @app.long_callback(
+# @callback( # for debug purposes...
     output=[
         Output("craco_candidate_filterbank", "children"),
         Output("craco_candidate_images", "children"),
@@ -450,7 +451,7 @@ def craco_icscas_plot(nclick, cand_query_strings):
 )
 def craco_cand_plot(nclick, cand_query_strings, flagchan, flagant, padding):
     cand_query_dict = eval(cand_query_strings)
-    print(cand_query_dict)
+    # print(cand_query_dict)
     try:
         candrow = {
             "ra_deg": float(cand_query_dict["ra"]), "dec_deg": float(cand_query_dict["dec"]),
@@ -475,21 +476,31 @@ def craco_cand_plot(nclick, cand_query_strings, flagchan, flagant, padding):
         f"""{cand_query_dict["scan"]}/{cand_query_dict["tstart"]}""",
         cand_query_dict["runname"],
     )
-    rundir.get_run_params()
+    try: 
+        rundir.get_run_params()
+        metafant = rundir.scheddir.flagant # this is a list
+    except: 
+        metafant = [] # nothing
     # note - wrong antenna will be flagged behind the scene
     # get run antenna based on the metadata
-    metafant = rundir.scheddir.flagant # this is a list
     flagant = intlst_to_strrange(_combine_ant_flag(metafant, flagant))
-    print(flagant)
+    # print(flagant)
 
 
     #TODO - get metadata path
+    try: start_mjd = Time(eval(rundir.startmjd), format="jd", scale="tai")
+    except: start_mjd = None
+
+    print(f"running fixuvfits on {cand_query_dict['uvfitspath']}")
+    try: fixuvfits.fix_length(cand_query_dict['uvfitspath'])
+    except: pass
+
     cand = craco_cand.Cand(
         uvfits = cand_query_dict['uvfitspath'], 
-        metafile = rundir.scheddir.metafile, 
+        metafile = rundir.scheddir.metafile, # if there is nothing, it should give you None
         calfile = cand_query_dict['calpath'],
         # start_mjd = Time(rundir.scheddir.start_mjd, format="jd", scale="tai"),
-        start_mjd = Time(eval(rundir.startmjd), format="jd", scale="tai"),
+        start_mjd = start_mjd,
         flagant = flagant, flagchan=flagchan,
         **candrow,
     )
