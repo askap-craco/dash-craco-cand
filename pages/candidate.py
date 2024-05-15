@@ -33,7 +33,7 @@ from apputil import (
 
 # from craco import craco_candidate
 from craft import craco_plan
-from craco import craco_cand, fixuvfits
+from craco import craco_cand #, fixuvfits
 from craco.datadirs import DataDirs, SchedDir, ScanDir, RunDir, format_sbid
 from craft.cmdline import strrange
 
@@ -426,10 +426,20 @@ def craco_icscas_plot(nclick, cand_query_strings):
     return dbc.Row([icsfigcol, casfigcol]), "Done..."
 
 
+### fix uvfits code
+def fixuvfits(fitsfile):
+    env = os.environ.copy()
+    cmd = f"fixuvfits {fitsfile}"
+    print(f"executing - {cmd}")
+    subprocess.run(
+        [cmd], shell=True, capture_output=True,
+        text=True, env=env,
+    )
+
 # craco candidate related plotting
 # https://stackoverflow.com/a/75437616
-@app.long_callback(
-# @callback( # for debug purposes...
+# @app.long_callback(
+@callback( # for debug purposes...
     output=[
         Output("craco_candidate_filterbank", "children"),
         Output("craco_candidate_images", "children"),
@@ -492,7 +502,8 @@ def craco_cand_plot(nclick, cand_query_strings, flagchan, flagant, padding):
     except: start_mjd = None
 
     print(f"running fixuvfits on {cand_query_dict['uvfitspath']}")
-    try: fixuvfits.fix_length(cand_query_dict['uvfitspath'])
+    try: fixuvfits(cand_query_dict['uvfitspath'])
+    # try: fixuvfits.fix_length(cand_query_dict['uvfitspath'])
     except: pass
 
     cand = craco_cand.Cand(
