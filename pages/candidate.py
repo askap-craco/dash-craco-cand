@@ -496,8 +496,6 @@ def craco_cand_plot(nclick, cand_query_strings, flagchan, flagant, padding):
     flagant = intlst_to_strrange(_combine_ant_flag(metafant, flagant))
     # print(flagant)
 
-
-    #TODO - get metadata path
     try: start_mjd = Time(eval(rundir.startmjd), format="jd", scale="tai")
     except: start_mjd = None
 
@@ -688,6 +686,7 @@ def craco_cand_plot(nclick, cand_query_strings, flagchan, flagant, padding):
     )
 
 ### plot for larger region
+# @callback( # for debugging purposes
 @app.long_callback(
     output = [
         Output("craco_candidate_larger_images_div", "children"),
@@ -729,12 +728,26 @@ def craco_cand_large_plot(nclick, cand_query_strings, flagchan, flagant, padding
         f"""{cand_query_dict["scan"]}/{cand_query_dict["tstart"]}""",
         cand_query_dict["runname"],
     )
-    rundir.get_run_params()
-    # note - wrong antenna will be flagged behind the scene
-    # get run antenna based on the metadata
-    metafant = rundir.scheddir.flagant # this is a list
+
+    try: 
+        rundir.get_run_params()
+        metafant = rundir.scheddir.flagant # this is a list
+    except: 
+        metafant = [] # nothing
+    # rundir.get_run_params()
+    # # note - wrong antenna will be flagged behind the scene
+    # # get run antenna based on the metadata
+    # metafant = rundir.scheddir.flagant # this is a list
     flagant = intlst_to_strrange(_combine_ant_flag(metafant, flagant))
     # print(flagant)
+
+    try: start_mjd = Time(eval(rundir.startmjd), format="jd", scale="tai")
+    except: start_mjd = None
+
+    print(f"running fixuvfits on {cand_query_dict['uvfitspath']}")
+    try: fixuvfits(cand_query_dict['uvfitspath'])
+    # try: fixuvfits.fix_length(cand_query_dict['uvfitspath'])
+    except: pass
 
 
     cand = craco_cand.Cand(
@@ -742,7 +755,7 @@ def craco_cand_large_plot(nclick, cand_query_strings, flagchan, flagant, padding
         metafile = rundir.scheddir.metafile, 
         calfile = cand_query_dict['calpath'],
         # start_mjd = Time(rundir.scheddir.start_mjd, format="jd", scale="tai"),
-        start_mjd = Time(eval(rundir.startmjd), format="jd", scale="tai"),
+        start_mjd = start_mjd,
         flagant = flagant, flagchan=flagchan,
         **candrow,
     )
