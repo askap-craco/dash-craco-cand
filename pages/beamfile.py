@@ -106,7 +106,7 @@ def load_candidate(beamid, inputsbid, beamscan, ):
         return None, ""
 
     query_dict = dict(sbid=sbid, beam=beam, scanpath=beamscan)
-    print(query_dict)
+    # print(query_dict)
     uvfitsfile = find_file("uvfits", query_dict)
     calfile = find_file("cal", query_dict)
     allcandfile = find_file("cand_raw", query_dict)

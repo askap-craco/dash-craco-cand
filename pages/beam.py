@@ -62,8 +62,8 @@ def filterdf_snr(snrthres, beam_query_strings):
     try:
         beam_query_dict = eval(beam_query_strings)
         # print(beam_query_dict)
-        beamcanddf = load_candidate(beam_query_dict["fname"])
-        beamcand_snrdf = beamcanddf[beamcanddf["SNR"] >= snrthres]
+        beamcand_snrdf = load_candidate(beam_query_dict["fname"], snrcut=snrthres)
+        # beamcand_snrdf = beamcanddf[beamcanddf["SNR"] >= snrthres]
         beamcand_snrdf = beamcand_snrdf.reset_index(drop=True)
 
         # ra_center = circular_mean(beamcand_snrdf["ra"].to_numpy())
@@ -71,10 +71,11 @@ def filterdf_snr(snrthres, beam_query_strings):
         
         return (
             beamcand_snrdf.to_json(orient="split"), 
-            beamcanddf["totalsample"].max(), None,
+            beamcand_snrdf["totalsample"].max(), None,
         )
-    except:
+    except Exception as err:
         if "fname" in beam_query_dict:
+            print(err)
             return (
                 None, 100, dbc.Row(dbc.FormText(f"Warning... error in loading {beam_query_dict['fname']}...")),
                 # None.__str__(),
@@ -555,7 +556,7 @@ def layout(**beam_query_strings):
             dbc.Container(id="beam_warning_match_msg"), dbc.Container(id="beam_warning_load_msg"),
             dbc.Container(html.H5("Basic Information")),
             dbc.Container(id="beam_info_div"),
-            snr_slider(default=8),
+            snr_slider(default=10),
             candidate_plots_container(),
             dcc.Store(id="beamcand_snr_value"),
             dcc.Store(id="click_id_value", data=None.__str__()),

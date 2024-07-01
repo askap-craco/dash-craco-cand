@@ -115,7 +115,14 @@ def init_sqlite():
     conn.close()
 
 ### load candidates handler
-def load_candidate(fname):
+def check_cand_ftype(fname):
+    ndarr = np.loadtxt(fname, max_rows=5)
+    ndarr_shape = ndarr.shape
+    if len(ndarr_shape) != 2: return "old"
+    if ndarr_shape[-1] == 16: return "new"
+    return "old"
+
+def load_candidate(fname, snrcut=None):
     if fname.endswith(".csv"):
         cand_df = pd.read_csv(fname, index_col=0)
         ### rename columns
@@ -129,27 +136,57 @@ def load_candidate(fname):
                 "dec_deg": "dec",
             }
         )
+        ### change SNR from lower case to upper case...
+        if "snr" in cand_df.columns:
+            cand_df = cand_df.rename(columns={"snr": "SNR"})
+        ### cut
+        cand_df = cand_df[cand_df["SNR"] > snrcut]
     else:
-        dtype = np.dtype(
-            [
-                ('SNR',np.float32), # physical snr
-                ('lpix', np.float32), # l pixel of the detection
-                ('mpix', np.float32), # m pixel of the detection
-                ('boxcwidth', np.float32), # boxcar width, 0 for 1 to 7 for 8
-                ('time', np.float32), # sample of the detection in a given block
-                ('dm', np.float32), # dispersion measure in hardware
-                ('iblk', np.float32), # index of the block of the detection, by default each block is 256 samples
-                ('rawsn', np.float32), # raw snr
-                ('totalsample', np.float32), # sample index over the whole observation
-                ('obstimesec', np.float32), # time difference between the detection and the start of the observation
-                ('mjd', np.float64), # detection time in mjd
-                ('dmpccm', np.float32), # physical dispersion measure
-                ('ra', np.float64), 
-                ('dec', np.float64)
-            ]
-        )
+        if check_cand_ftype(fname) == "old":
+            dtype = np.dtype(
+                [
+                    ('SNR',np.float32), # physical snr
+                    ('lpix', np.float32), # l pixel of the detection
+                    ('mpix', np.float32), # m pixel of the detection
+                    ('boxcwidth', np.float32), # boxcar width, 0 for 1 to 7 for 8
+                    ('time', np.float32), # sample of the detection in a given block
+                    ('dm', np.float32), # dispersion measure in hardware
+                    ('iblk', np.float32), # index of the block of the detection, by default each block is 256 samples
+                    ('rawsn', np.float32), # raw snr
+                    ('totalsample', np.float32), # sample index over the whole observation
+                    ('obstimesec', np.float32), # time difference between the detection and the start of the observation
+                    ('mjd', np.float64), # detection time in mjd
+                    ('dmpccm', np.float32), # physical dispersion measure
+                    ('ra', np.float64), 
+                    ('dec', np.float64)
+                ]
+            )
+        else:
+            dtype = np.dtype(
+                [
+                    ('SNR',np.float32), # physical snr
+                    ('lpix', np.float32), # l pixel of the detection
+                    ('mpix', np.float32), # m pixel of the detection
+                    ('boxcwidth', np.float32), # boxcar width, 0 for 1 to 7 for 8
+                    ('time', np.float32), # sample of the detection in a given block
+                    ('dm', np.float32), # dispersion measure in hardware
+                    ('iblk', np.float32), # index of the block of the detection, by default each block is 256 samples
+                    ('rawsn', np.float32), # raw snr
+                    ('totalsample', np.float32), # sample index over the whole observation
+                    ('obstimesec', np.float32), # time difference between the detection and the start of the observation
+                    ('mjd', np.float64), # detection time in mjd
+                    ('dmpccm', np.float32), # physical dispersion measure
+                    ('ra', np.float64), 
+                    ('dec', np.float64),
+                    ("ibeam", int), # beam index
+                    ("latencyms", np.float32) # detection latency
+                ]
+            )
 
         cand_np = np.loadtxt(fname, dtype=dtype)
+        ### snrcut here - so that we can even load lots of candidates...
+        if cand_np is not None:
+            cand_np = cand_np[cand_np["SNR"] >= snrcut]
         cand_df = pd.DataFrame(cand_np)
 
     ### change lpix, mpix, boxcwidth, time, dm, iblk, rawsn, total_sample to integer
@@ -372,6 +409,7 @@ def construct_beaminfo(query_dict):
     if query_dict["fname"] is None:
         query_dict["fname"] = find_file("cand_cls", query_dict) if query_dict["unique"] else find_file("cand_raw", query_dict)
 
+    print(query_dict)
     fname = query_dict["fname"].replace(".csv", "")
     # fnamesplit = fname.split("/")
     ### it will update all other information based on the fname
