@@ -5,6 +5,7 @@ import dash
 
 import glob
 import os
+import re
 
 import pandas as pd
 import numpy as np
@@ -22,9 +23,24 @@ from craco.datadirs import DataDirs, SchedDir, ScanDir, RunDir, format_sbid
 
 dash.register_page(__name__, path="/beamfile", title="CRACO File Loader")
 
+def _is_headdir_beamfolder(path):
+    folder = path.split("/")[-1]
+    if re.match(r"beam\d{2}", folder): return True
+    return False
+
+def _get_result_scans(scans):
+    scanfolder = ["/".join(scan.split("/")[:-1]) for scan in scans]
+    uniq_scan = list(set(scanfolder))
+    return [f"{scan}/results" for scan in uniq_scan]
+
 def _workout_uniq_scans(sched_head_dir, scanlst):
     # this is for skadi
     scans = [scan for scan in scanlst if os.path.exists(f"{sched_head_dir}/scans/{scan}")]
+    scans.extend(_get_result_scans(scans))
+    scans = sorted(set(scans))
+    # remove scans that finish with beam??
+    scans = [scan for scan in scans if not _is_headdir_beamfolder(scan)]
+    
     if len(scans) == 0: return [], None
 
     defaultscan = None
