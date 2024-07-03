@@ -21,6 +21,8 @@ import pandas as pd
 import numpy as np
 
 from astropy.coordinates import SkyCoord
+from astropy.wcs import WCS
+from astropy.io.fits import Header
 from astropy.time import Time
 import astropy.units as units
 from astroquery.vizier import Vizier
@@ -437,14 +439,55 @@ def fixuvfits(fitsfile):
     )
 
 # craco candidate related plotting
+# function for storing and loading wcs information
+def strise_plan_wcs(plan):
+    wcs = plan.wcs
+    wcs_header = wcs.to_header()
+    wcs_header_str = wcs_header.tostring()
+    return wcs_header_str
+
+def load_wcs_header_str(wcs_header_str):
+    header = Header.fromstring(wcs_header_str)
+    return WCS(header)
+
+def get_loc_from_clickdata(clickdata):
+    point = clickdata["points"][0]
+    x = point.get("x")
+    y = point.get("y")
+    return x, y
+
+def format_new_webpage(cand_query_str, ra, dec, x=None, y=None):
+    cand_query_dict = eval(cand_query_str)
+    if x is None:
+        keys = [
+            "sbid", "beam", "scan", "tstart", "runname", 
+            "dm", "boxcwidth", "totalsample", "lpix", "mpix"
+        ]
+    else:
+        keys = [
+            "sbid", "beam", "scan", "tstart", "runname", 
+            "dm", "boxcwidth", "totalsample", 
+        ]
+    queries = ["{}={}".format(key, cand_query_dict[key]) for key in keys]
+    queries = "&".join(queries)
+
+    links = "/candidate?{}".format(queries)
+    ###
+    if x is not None:
+        links += "&lpix={}&mpix={}".format(x, y)
+    links += "&ra={}&dec={}".format(ra, dec)
+    
+    return links
+
+
 # https://stackoverflow.com/a/75437616
-@app.long_callback(
-# @callback( # for debug purposes...
+# @app.long_callback(
+@callback( # for debug purposes...
     output=[
         Output("craco_candidate_filterbank", "children"),
         Output("craco_candidate_images", "children"),
         # Output("craco_candidate_larger_images", "children"),
-        # Output("cand_filterbank_store", "data"),
+        Output("normal_wcs_strings", "data"),
         Output("craco_cand_plot_status", "children"),
     ],
     inputs=[
@@ -624,7 +667,7 @@ def craco_cand_plot(nclick, cand_query_strings, flagchan, flagant, padding):
     fig.update_layout(title=dict(text="std image (inter)", x=0.5, xanchor="center"))
     snrfig = dbc.Col([
         # dbc.Row("std image", justify="center"),
-        dbc.Row(html.Div(dcc.Graph(figure=fig, ))),
+        dbc.Row(html.Div(dcc.Graph(figure=fig, id="small_std_fig"))),
     ], width=4)
 
     # work out the limits during the detection...
@@ -662,11 +705,13 @@ def craco_cand_plot(nclick, cand_query_strings, flagchan, flagant, padding):
     fig.update_layout(title=dict(text="detection image (inter)", x=0.5, xanchor="center"))
     detectfig = dbc.Col([
         # dbc.Row("detection image", justify="center"),
-        dbc.Row(html.Div(dcc.Graph(figure=fig, ))),
+        dbc.Row(html.Div(dcc.Graph(figure=fig, id="small_det_fig"))),
     ], width=4)
 
     ### once we have a light version craco_plan,
     ### considering move larger image to here
+    ### okay now store wcs information...
+    wcs_header_str = strise_plan_wcs(cand.canduvfits.plan)
 
     os.system("rm uv_data.*.txt")
 
@@ -682,15 +727,50 @@ def craco_cand_plot(nclick, cand_query_strings, flagchan, flagant, padding):
             dbc.Row(imgdigplot),
             dbc.Row([snrfig, zoomfig, detectfig]),
         ]),
+        wcs_header_str,
         "done..."
     )
 
+### add callback for std and image clickdata
+@callback(
+    output = [
+        Output("small_click_srccoord", "children"),
+        Output("small_click_srcpix", "children"),
+        Output("small_click_btn", "href")
+    ],
+    inputs = [
+        Input("small_std_fig", "clickData"),
+        Input("small_det_fig", "clickData"),
+        State("normal_wcs_strings", "data"),
+        State("cand_query_strings", "data")
+    ],
+    prevent_initial_call = True,
+)
+def small_src_click(std_clickdata, det_clickdata, wcsstr, cand_query_str): 
+    if ctx.triggered_id == "small_det_fig": clickdata = det_clickdata
+    elif ctx.triggered_id == "small_std_fig": clickdata = std_clickdata
+    else: raise PreventUpdate
+    if clickdata is None: raise PreventUpdate
+
+    wcs = load_wcs_header_str(wcsstr)
+    x, y = get_loc_from_clickdata(clickdata)
+    coord = wcs.pixel_to_world(x, y)
+    ra = coord.ra.degree
+    dec = coord.dec.degree
+
+    ### format link
+    links = format_new_webpage(cand_query_str, ra, dec, x, y)
+    coordstr = f"{ra:.4f}d {dec:.4f}"
+    pixelstr = f"({x}, {y})"
+    return coordstr, pixelstr, links
+
 ### plot for larger region
-# @callback( # for debugging purposes
-@app.long_callback(
+@callback( # for debugging purposes
+# @app.long_callback(
     output = [
         Output("craco_candidate_larger_images_div", "children"),
         Output("craco_cand_large_plot_status", "children"),
+        Output("larger_wcs_strings", "data"),
     ],
     inputs = [
         Input("craco_cand_large_plot_btn", "n_clicks"),
@@ -778,7 +858,7 @@ def craco_cand_large_plot(nclick, cand_query_strings, flagchan, flagant, padding
     fig = px.imshow(stdimg, origin="lower")
     fig.add_shape(linedict, **selection_bound_large)
     fig.update_layout(title=dict(text="std image (inter)", x=0.5, xanchor="center"))
-    snrfig = dbc.Col([dbc.Row(html.Div(dcc.Graph(figure=fig)))], width=4)
+    snrfig = dbc.Col([dbc.Row(html.Div(dcc.Graph(figure=fig, id="large_std_fig")))], width=4)
 
     ### detection things
 
@@ -806,11 +886,47 @@ def craco_cand_large_plot(nclick, cand_query_strings, flagchan, flagant, padding
     )
     fig.add_shape(linedict, **selection_bound_large)
     fig.update_layout(title=dict(text="detection image (inter)", x=0.5, xanchor="center"))
-    detectfig = dbc.Col([dbc.Row(html.Div(dcc.Graph(figure=fig, ))),], width=4)
+    detectfig = dbc.Col([dbc.Row(html.Div(dcc.Graph(figure=fig, id="large_det_fig"))),], width=4)
+
+    ### okay now store wcs information...
+    wcs_header_str = strise_plan_wcs(lplan)
 
     os.system("rm uv_data.*.txt")
 
-    return dbc.Row([snrfig, zoomfig, detectfig]), "done..."
+    return dbc.Row([snrfig, zoomfig, detectfig]), "done...", wcs_header_str
+
+### add callback for std and image clickdata
+@callback(
+    output = [
+        Output("large_click_srccoord", "children"),
+        Output("large_click_srcpix", "children"),
+        Output("large_click_btn", "href")
+    ],
+    inputs = [
+        Input("large_std_fig", "clickData"),
+        Input("large_det_fig", "clickData"),
+        State("larger_wcs_strings", "data"),
+        State("cand_query_strings", "data")
+    ],
+    prevent_initial_call = True,
+)
+def large_src_click(std_clickdata, det_clickdata, wcsstr, cand_query_str): 
+    if ctx.triggered_id == "large_det_fig": clickdata = det_clickdata
+    elif ctx.triggered_id == "large_std_fig": clickdata = std_clickdata
+    else: raise PreventUpdate
+    if clickdata is None: raise PreventUpdate
+
+    wcs = load_wcs_header_str(wcsstr)
+    x, y = get_loc_from_clickdata(clickdata)
+    coord = wcs.pixel_to_world(x, y)
+    ra = coord.ra.degree
+    dec = coord.dec.degree
+
+    ### format link
+    links = format_new_webpage(cand_query_str, ra, dec, )
+    coordstr = f"{ra:.4f}d {dec:.4f}"
+    pixelstr = f"({x}, {y})"
+    return coordstr, pixelstr, links
 
 # callback to enable mannual color scales
 @callback(
@@ -1034,12 +1150,13 @@ def _store_candidate(cand_query_dict):
 
 ### final layout
 def layout(**cand_query_strings):
-    # print(cand_query_strings)
+    print(cand_query_strings)
 
     return html.Div([
         dcc.Location(id="cand_url", refresh=False),
         dcc.Store(id="cand_query_strings", data=cand_query_strings.__str__()),
-        dcc.Store(id="cand_filterbank_store"), # make this available later perhaps
+        dcc.Store(id="normal_wcs_strings"), 
+        dcc.Store(id="larger_wcs_strings"),
         dbc.Container(dbc.Col([
             dbc.Row([
                 dbc.Col(html.H5("Candidate Pipeline Information"), width=3),
@@ -1083,6 +1200,19 @@ def layout(**cand_query_strings):
             ]),
             dbc.Row(id="craco_candidate_filterbank"),
             dbc.Row(id="craco_candidate_images"),
+            ### for link to another page...
+            dbc.Row(dbc.Container([
+                dbc.Row("navigate to the source clicked in the 256pixel image"),
+                dbc.Col([
+                    dbc.Row([
+                        dbc.Col("Source coordinate"),
+                        dbc.Col("Nothing Clicked", id="small_click_srccoord"),
+                        dbc.Col("Pixel"),
+                        dbc.Col("Nothing Clicked", id="small_click_srcpix"),
+                        dbc.Col(dbc.Button("GO", color="success", id="small_click_btn", target="_blank"), width=3),
+                    ])
+                ])
+            ])),
             dbc.Row([
                 dbc.Col(html.P(html.B("Synthesized Images (npix=512)")), width=3),
                 dbc.Col(dbc.Button("Process", id="craco_cand_large_plot_btn", color="success"), width=3),
@@ -1091,6 +1221,19 @@ def layout(**cand_query_strings):
             dbc.Row(dbc.Container([
                 dbc.Container(id="craco_candidate_larger_images_div"),
             ]), id="craco_candidate_larger_images"),
+            ### for link to another page...
+            dbc.Row(dbc.Container([
+                dbc.Row("navigate to the source clicked in the 512pixel image"),
+                dbc.Col([
+                    dbc.Row([
+                        dbc.Col("Source coordinate"),
+                        dbc.Col("Nothing Clicked", id="large_click_srccoord"),
+                        dbc.Col("Pixel"),
+                        dbc.Col("Nothing Clicked", id="large_click_srcpix"),
+                        dbc.Col(dbc.Button("GO", color="success", id="large_click_btn", target="_blank"), width=3),
+                    ])
+                ])
+            ])),
             ##### layout for keep buttons
             html.Hr(),
             dbc.Row(dbc.Container([
