@@ -481,8 +481,8 @@ def format_new_webpage(cand_query_str, ra, dec, x=None, y=None):
 
 
 # https://stackoverflow.com/a/75437616
-# @app.long_callback(
-@callback( # for debug purposes...
+@app.long_callback(
+# @callback( # for debug purposes...
     output=[
         Output("craco_candidate_filterbank", "children"),
         Output("craco_candidate_images", "children"),
@@ -765,8 +765,8 @@ def small_src_click(std_clickdata, det_clickdata, wcsstr, cand_query_str):
     return coordstr, pixelstr, links
 
 ### plot for larger region
-@callback( # for debugging purposes
-# @app.long_callback(
+# @callback( # for debugging purposes
+@app.long_callback(
     output = [
         Output("craco_candidate_larger_images_div", "children"),
         Output("craco_cand_large_plot_status", "children"),
@@ -1165,25 +1165,25 @@ def layout(**cand_query_strings):
             ]),
             dbc.Row([
                 dbc.Col(html.Div(id="cand_info_table_div"), width=12), # basic information from pipeline
-            ]),
+            ], style={'marginBottom': '0.5em'}),
                 dbc.Row(id="candidate_all_files", justify="center"),
             dbc.Row([
                 html.H5("Candidate External Information")
-            ]),
+            ], style={'marginBottom': '0.5em'}),
             dbc.Row([
                 dbc.Col(html.Div(id="cand_cross_table_div"), width=12), # cross check from PSRCAT, RACS, SIMBAD
-            ]),
+            ], style={'marginBottom': '0.5em'}),
             dbc.Row([
                 dbc.Col(html.H5("ICS/CAS"), width=3),
                 dbc.Col(dbc.Button("Process", id="craco_icscas_plot_btn", color="success"), width=3),
                 dbc.Col(dcc.Loading(id="craco_icscas_plot_status", fullscreen=False)),
-            ]),
+            ], style={'marginBottom': '0.5em'}),
             dbc.Row(id="craco_icscas"),
             dbc.Row([
                 dbc.Col(html.H5("Candidate CRACO Data"), width=3),
                 dbc.Col(dbc.Button("Process", id="craco_cand_plot_btn", color="success"), width=3),
                 dbc.Col(dcc.Loading(id="craco_cand_plot_status", fullscreen=False)),
-            ]),
+            ], style={'marginBottom': '0.3em'}),
             dbc.Row([
                 dbc.Col(dbc.Row([
                     dbc.Col(html.P("FANT"), width=3), 
@@ -1197,12 +1197,12 @@ def layout(**cand_query_strings):
                     dbc.Col(html.P("PADDING"), width=3), 
                     dbc.Col(dcc.Input(id="cand_pad", type="number", value=75, placeholder="number - default 50"), width=6),
                 ]), width=3),
-            ]),
-            dbc.Row(id="craco_candidate_filterbank"),
-            dbc.Row(id="craco_candidate_images"),
+            ], style={'marginBottom': '0.3em'}),
+            dbc.Row(id="craco_candidate_filterbank", style={'marginBottom': '0.5em'}),
+            dbc.Row(id="craco_candidate_images", style={'marginBottom': '0.5em'}),
             ### for link to another page...
             dbc.Row(dbc.Container([
-                dbc.Row("navigate to the source clicked in the 256pixel image"),
+                dbc.Row("navigate to the source clicked in the 256pixel image", style={'marginBottom': '0.2em'}),
                 dbc.Col([
                     dbc.Row([
                         dbc.Col("Source coordinate"),
@@ -1212,12 +1212,12 @@ def layout(**cand_query_strings):
                         dbc.Col(dbc.Button("GO", color="success", id="small_click_btn", target="_blank"), width=3),
                     ])
                 ])
-            ])),
+            ]), style={'marginBottom': '0.5em'}),
             dbc.Row([
                 dbc.Col(html.P(html.B("Synthesized Images (npix=512)")), width=3),
                 dbc.Col(dbc.Button("Process", id="craco_cand_large_plot_btn", color="success"), width=3),
                 dbc.Col(dcc.Loading(id="craco_cand_large_plot_status", fullscreen=False)),
-            ]),
+            ], style={'marginBottom': '0.3em'}),
             dbc.Row(dbc.Container([
                 dbc.Container(id="craco_candidate_larger_images_div"),
             ]), id="craco_candidate_larger_images"),
@@ -1233,24 +1233,24 @@ def layout(**cand_query_strings):
                         dbc.Col(dbc.Button("GO", color="success", id="large_click_btn", target="_blank"), width=3),
                     ])
                 ])
-            ])),
+            ]), style={'marginBottom': '0.5em'}),
             ##### layout for keep buttons
             html.Hr(),
-            dbc.Row(dbc.Container([
-                dbc.Col(dbc.Button("KEEP", id="craco_keep_btn", color="success"), width=3),
+            dbc.Row([
+                dbc.Col(dbc.Button("KEEP", id="craco_keep_btn", color="success"), width=1),
                 dbc.Col(dbc.Row([
-                    dbc.Col(html.P("comment"), width=3),
-                    dbc.Col(dcc.Input(id="archive_comment", type="text", placeholder="FRB..."), width=6),
-                ])),
+                    dbc.Col(html.P("comment"), width=3, align="center"),
+                    dbc.Col(dcc.Input(id="archive_comment", type="text", placeholder="FRB..."), width=2),
+                ]), align="center"),
                 dbc.Col(dbc.RadioItems(
                     options=[
                         {"label": "scan", "value": 1},
                         {"label": "sbid", "value": 2},
                     ],
                     value=1, id="craco_keep_option", inline=True,
-                 ),width=9),
+                 ),width=2, align="center"),
                 dbc.Col(dcc.Loading(id="craco_keep_status", fullscreen=False)),
-            ]), )
+            ], style={'marginBottom': '1.5em'})
         ])),
         dbc.Container(dbc.Row([
             html.Div(id="cand_test_div"),
