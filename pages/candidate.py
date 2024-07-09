@@ -253,7 +253,7 @@ def _match_racs(candcoord):
     v.ROW_LIMITS = -1
 
     try:
-        racs_query = v.query_region(candcoord, radius="30s")
+        racs_query = v.query_region(candcoord, radius="60s")
     except:
         return pd.DataFrame({"NO_INTERNET": []})
     
@@ -266,7 +266,7 @@ def _match_simbad(candcoord):
     perform a naive match with simbad
     """
     try:
-        sim_query = Simbad.query_region(candcoord, radius="30s")
+        sim_query = Simbad.query_region(candcoord, radius="60s")
     except:
         return pd.DataFrame({"NO_INTERNET": []})
 
@@ -279,13 +279,13 @@ def _match_simbad(candcoord):
         return sim_df
     return pd.DataFrame({"MAIN_ID":[], "RA": [], "DEC": [], "sep": []})
 
-def _atnf_psrcat_url(ra, dec, radius=0.01):
+def _atnf_psrcat_url(ra, dec, radius=0.017):
     return f"https://www.atnf.csiro.au/research/pulsar/psrcat/proc_form.php?version=1.70&Jname=Jname&Name=Name&P0=P0&DM=DM&W50=W50&S400=S400&S1400=S1400&startUserDefined=true&c1_val=&c2_val=&c3_val=&c4_val=&sort_attr=jname&sort_order=asc&condition=&pulsar_names=&ephemeris=short&coords_unit=rajd%2Fdecjd&radius={radius}&coords_1={ra}&coords_2={dec}&raddist=raddist&style=Long+with+last+digit+error&no_value=*&fsize=3&x_axis=&x_scale=linear&y_axis=&y_scale=linear&state=query&table_bottom.x=66&table_bottom.y=13"
 
 def _vizier_url(candcoord):
     pass
 
-def _simbad_url(ra, dec, radius=30):
+def _simbad_url(ra, dec, radius=60):
     return f"http://simbad.cds.unistra.fr/simbad/sim-coo?Coord={ra}+{dec}&CooFrame=FK5&CooEpoch=2000&CooEqui=2000&CooDefinedFrames=none&Radius={radius}&Radius.unit=arcsec&submit=submit+query&CoordList="
 
 def _format_query_datatable(df, **extra_param):
