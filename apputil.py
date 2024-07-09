@@ -16,6 +16,9 @@ import glob
 from craft import sigproc
 from craco.datadirs import DataDirs, SchedDir, ScanDir, RunDir, format_sbid
 
+from astropy.coordinates import SkyCoord
+from astropy import units
+
 # load password pairs
 def load_password(fname):
     with open(fname) as fp:
@@ -199,7 +202,6 @@ def load_candidate(fname, snrcut=None):
     return cand_df
 
 def fig_to_uri(in_fig, close_all=True, **save_args):
-    # type: (plt.Figure) -> str
     """
     Save a figure as a URI
     :param in_fig:
@@ -426,3 +428,13 @@ def construct_beaminfo(query_dict):
     query_dict.update(newdict)
 
     return query_dict
+
+def get_source_name(ra, dec):
+    srccoord = SkyCoord(ra, dec, unit=units.degree)
+    ra_hms = srccoord.ra.hms
+    dec_dms = srccoord.dec.dms
+
+    ra_str = f"{int(ra_hms.h):02d}{int(ra_hms.m):02d}"
+    dec_str = f"{int(dec_dms.d):+03d}{int(abs(dec_dms.m)):02d}"
+
+    return f"J{ra_str}{dec_str}"

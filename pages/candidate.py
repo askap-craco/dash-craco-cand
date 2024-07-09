@@ -1159,8 +1159,15 @@ def _gui_tools_layout(cand_query_dict):
             "Candidate Localisation", color="success",
             href="/localise?{}".format("&".join(linkqueries))
         )
+    ], width=2)
+
+    tabbtn = dbc.Col([
+        dbc.Button(
+            "Tied-Array Beam filterbank", color="success",
+            href="/tab?{}".format("&".join(linkqueries))
+        )
     ], width=3)
-    return dbc.Row([localbtn])
+    return dbc.Row([localbtn, tabbtn])
 
 ### final layout
 def layout(**cand_query_strings):
