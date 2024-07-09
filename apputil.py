@@ -409,7 +409,7 @@ def construct_beaminfo(query_dict):
     if query_dict["fname"] is None:
         query_dict["fname"] = find_file("cand_cls", query_dict) if query_dict["unique"] else find_file("cand_raw", query_dict)
 
-    print(query_dict)
+    # print(query_dict)
     fname = query_dict["fname"].replace(".csv", "")
     # fnamesplit = fname.split("/")
     ### it will update all other information based on the fname

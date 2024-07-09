@@ -236,7 +236,7 @@ def _match_psrcat(candcoord):
     psrcoord = SkyCoord(psrdf["RAJ"], psrdf["DECJ"], unit=(units.hourangle, units.degree))
 
     psrsep = candcoord.separation(psrcoord).value
-    nearby_bool = psrsep < 30./3600.
+    nearby_bool = psrsep < 90./3600.
 
     nearby_df = psrdf[nearby_bool].copy()
     nearby_df["sep"] = psrsep[nearby_bool] * 3600
@@ -1148,6 +1148,20 @@ def _store_candidate(cand_query_dict):
     fp.write(f"""{d["scan"]},{d["tstart"]},{d["beam"]},{d["dm"]},{d["boxcwidth"]},{d["lpix"]},{d["mpix"]},{d["totalsample"]},{d["ra"]},{d["dec"]}\n""")
     fp.close()
 
+def _gui_tools_layout(cand_query_dict):
+    linkqueries = []
+    for k in ["sbid", "scan", "tstart", "beam", "runname", "dm", "boxcwidth", "totalsample", "ra", "dec"]:
+        v = cand_query_dict.get(k)
+        if v is not None: linkqueries.append(f"{k}={v}")
+
+    localbtn = dbc.Col([
+        dbc.Button(
+            "Candidate Localisation", color="success",
+            href="/localise?{}".format("&".join(linkqueries))
+        )
+    ], width=3)
+    return dbc.Row([localbtn])
+
 ### final layout
 def layout(**cand_query_strings):
     print(cand_query_strings)
@@ -1250,7 +1264,10 @@ def layout(**cand_query_strings):
                     value=1, id="craco_keep_option", inline=True,
                  ),width=2, align="center"),
                 dbc.Col(dcc.Loading(id="craco_keep_status", fullscreen=False)),
-            ], style={'marginBottom': '1.5em'})
+            ], style={'marginBottom': '1.5em'}),
+            html.Hr(),
+            dbc.Row(html.H4("GUI Automatic Tools")),
+            _gui_tools_layout(cand_query_strings)
         ])),
         dbc.Container(dbc.Row([
             html.Div(id="cand_test_div"),
