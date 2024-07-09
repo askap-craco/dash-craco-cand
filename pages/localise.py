@@ -134,6 +134,7 @@ def snippet_command(
         cmd += f" -tstart {idxs} -tend {idxe}"
         if calib is not None:
             cmd += f" -calib {calib}"
+        cmd += f" -dedisp_pccc {dm}"
         if outname is None:
             uvfname = uvpath.split("/")[-1]
             uvfname = uvfname.replace(".uvfits", "")
