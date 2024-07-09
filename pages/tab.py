@@ -72,7 +72,7 @@ def tab_construct_info(
     except: decinvalid = True
 
     if rainvalid or decinvalid:
-        return rainvalid, decinvalid, "please provide a correct coordinate...", None, srcname, cand_dict.__str__()
+        return rainvalid, decinvalid, "please provide a correct coordinate...", None, srcname, "None"
 
     cand_dict = dict(
         sbid=sbid, beam=beam, scan=scan, tstart=tstart, runname="results",
@@ -89,6 +89,9 @@ def tab_construct_info(
     ### get workdir automatically...
     if srcname is None: srcname = get_source_name(ra_value, dec_value)
 
+    if cand_dict["uvfitspath"] is None:
+        return rainvalid, decinvalid, "the information you provided is insufficient...", None, srcname, cand_dict.__str__()
+    
     defaultworkdir = "/".join(cand_dict["uvfitspath"].split("/")[:-1])
     defaultworkdir += f"/pipetab/{srcname}"
     ###

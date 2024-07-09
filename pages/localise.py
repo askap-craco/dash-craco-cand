@@ -55,7 +55,7 @@ def loc_construct_info(nclick, sbid, scan, tstart, beam, runname, dm, boxcwidth,
     except: decinvalid = True
 
     if rainvalid or decinvalid:
-        return rainvalid, decinvalid, "please provide a correct coordinate...", ""
+        return rainvalid, decinvalid, "please provide a correct coordinate...", "", ""
 
     cand_dict = dict(
         sbid=sbid, beam=beam, scan=scan, tstart=tstart, runname=runname,
