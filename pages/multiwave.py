@@ -133,7 +133,7 @@ def get_decam_url(ra, dec, radius, survey, size=512):
     pixscale= 2 * radius / size
     if pixscale < decam_allsurveys[survey]["res"]:
         pixscale = decam_allsurveys[survey]["res"]
-        size = 2 * radius / pixscale
+        size = int(2 * radius / pixscale)
     baseurl = "https://www.legacysurvey.org/viewer/cutout.fits"
     query = f"ra={ra}&dec={dec}&layer={survey}&size={size}&pixscale={pixscale}"
     return f"{baseurl}?{query}"
