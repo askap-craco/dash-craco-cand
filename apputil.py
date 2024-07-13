@@ -216,6 +216,11 @@ def fig_to_uri(in_fig, close_all=True, **save_args):
     encoded = base64.b64encode(out_img.read()).decode("ascii").replace("\n", "")
     return "data:image/png;base64,{}".format(encoded)
 
+def load_figure_from_disk(figpath):
+    with open(figpath, "rb") as fp:
+        encoded = base64.b64encode(fp.read()).decode()
+    return "data:image/png;base64,{}".format(encoded)
+
 ### load filterbank
 def load_filterbank(filpath, tstart, ntimes):
     if tstart < 0: tstart = 0
