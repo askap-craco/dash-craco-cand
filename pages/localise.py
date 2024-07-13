@@ -175,19 +175,26 @@ def job_construct_info(
     calpath = cand_query.get("calpath")
     tpulse = int(cand_query.get("totalsample"))
     boxcwidth = int(cand_query.get("boxcwidth"))
-    dm = float(cand_query.get("dm"))
+    dm = int(float(cand_query.get("dm")))
 
     fidxs, fidxe = find_field_snippet_range(uvpath, length, tpulse)
     bidxs, bidxe = tpulse - boxcwidth, tpulse
 
+    ### get foutname and boutname here...
+    uvfname = uvpath.split("/")[-1]
+    uvfname = uvfname.replace(".uvfits", "")
+    foutname = uvfname + ".t{}_{}".format(fidxs, fidxe) + f".calib.dm{dm}.uvfits"
+    boutname = uvfname + ".t{}_{}".format(bidxs, bidxe) + f".calib.dm{dm}.uvfits"
+
+
     fcmd, foutname = snippet_command(
-        uvpath, calib=calpath, workdir=workdir,
-        idxs=fidxs, idxe=fidxe, dm=0.0, extra=extra
+        uvpath, calib=calpath, workdir=workdir, outname=foutname,
+        idxs=fidxs, idxe=fidxe, dm=dm, extra=extra
     )
     bcmd, boutname = snippet_command(
-        uvpath, calib=calpath, workdir=workdir,
-        idxs=bidxs, idxe=bidxe, dm=dm, extra=extra
-    )
+        f"{workdir}/{foutname}", workdir=workdir, outname=boutname,
+        idxs=bidxs-fidxs, idxe=bidxe-fidxs, dm=0, extra=extra
+    ) # use the previous one to make a new snippet...
 
     cand_query["foutname"] = foutname
     cand_query["boutname"] = boutname
