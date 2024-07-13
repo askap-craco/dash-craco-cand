@@ -34,7 +34,7 @@ def _header():
             dbc.NavItem(dbc.NavLink("Monitor", href="/monitor")),
             dbc.NavItem(dbc.NavLink("TAB Filterbank", href="/tab")),
             dbc.NavItem(dbc.NavLink("Localise Source", href="/localise")),
-            dbc.NavItem(dbc.NavLink("Multiλ Overlay", href="/multi")),
+            dbc.NavItem(dbc.NavLink("Multiλ Overlay", href="/multiwave")),
             # dbc.NavItem(dbc.NavLink("SchedBlock", href="/schedblock")),
             # dbc.NavItem(dbc.NavLink("Beam", href="/beam"))
         ],
