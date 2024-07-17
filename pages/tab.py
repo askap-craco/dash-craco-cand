@@ -145,6 +145,9 @@ def format_tab_filterbank_cmds(cand_query, extra):
     srcname = cand_query.get("srcname") 
 
     cmds = []
+    ### fix uvfits first!
+    for uvpath in uvpaths:
+        cmds.append(f"`which fixuvfits` {uvpath}")
     for uvpath in uvpaths:
         filname = default_tabfil_name(uvpath, srcname, norm, calib, skip, process, nt)
         cmd = f"`which tab_filterbank` -uv {uvpath}"
@@ -156,7 +159,6 @@ def format_tab_filterbank_cmds(cand_query, extra):
         if process != -1: cmd += f" --process_samps {process}"
         if extra is not None: cmd += f" {extra}"
         cmd += f" {filname}"
-        cmds.append(f"`which fix_uvfits` {uvpath}")
         cmds.append(cmd)
     return cmds
 
