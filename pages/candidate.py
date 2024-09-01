@@ -482,8 +482,8 @@ def format_new_webpage(cand_query_str, ra, dec, x=None, y=None):
 
 
 # https://stackoverflow.com/a/75437616
-# @app.long_callback(
-@callback( # for debug purposes...
+@app.long_callback(
+# @callback( # for debug purposes...
     output=[
         Output("craco_candidate_filterbank", "children"),
         Output("craco_candidate_images", "children"),
@@ -551,14 +551,6 @@ def craco_cand_plot(nclick, cand_query_strings, flagchan, flagant, padding, pcbm
 
     if pcbmask: pcbpath = cand_query_dict["pcbpath"]
     else: pcbpath = None
-
-    print(f"I am going to use {pcbpath} to mask data!")
-    print(f"craco_cand script path is - {craco_cand.__file__}")
-
-    print("uvfits", cand_query_dict['uvfitspath'])
-    print("calpath", cand_query_dict['calpath'])
-    print(start_mjd, flagant, flagchan)
-    print(candrow)
 
     cand = craco_cand.Cand(
         uvfits = cand_query_dict['uvfitspath'], 
