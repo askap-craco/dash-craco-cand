@@ -121,6 +121,7 @@ def update_cand_query_strings(cand_query_strings):
         raise PreventUpdate()
 
     cand_query_strings = construct_candinfo(cand_query_strings)
+    # print(cand_query_strings)
 
     ### add antenna flagging
     try:
@@ -481,8 +482,8 @@ def format_new_webpage(cand_query_str, ra, dec, x=None, y=None):
 
 
 # https://stackoverflow.com/a/75437616
-@app.long_callback(
-# @callback( # for debug purposes...
+# @app.long_callback(
+@callback( # for debug purposes...
     output=[
         Output("craco_candidate_filterbank", "children"),
         Output("craco_candidate_images", "children"),
@@ -496,13 +497,14 @@ def format_new_webpage(cand_query_str, ra, dec, x=None, y=None):
         State("cand_flagchan", "value"),
         State("cand_flagant", "value"),
         State("cand_pad", "value"),
+        State("cand_pcbmask_switch", "value"),
     ],
     running=[
         (Output("craco_cand_plot_btn", "disabled"), True, False),
     ],
     prevent_initial_call=True,
 )
-def craco_cand_plot(nclick, cand_query_strings, flagchan, flagant, padding):
+def craco_cand_plot(nclick, cand_query_strings, flagchan, flagant, padding, pcbmask):
     cand_query_dict = eval(cand_query_strings)
     # print(cand_query_dict)
     try:
@@ -547,13 +549,23 @@ def craco_cand_plot(nclick, cand_query_strings, flagchan, flagant, padding):
     # try: fixuvfits.fix_length(cand_query_dict['uvfitspath'])
     except: pass
 
+    if pcbmask: pcbpath = cand_query_dict["pcbpath"]
+    else: pcbpath = None
+
+    print(f"I am going to use {pcbpath} to mask data!")
+    print(f"craco_cand script path is - {craco_cand.__file__}")
+
+    print("uvfits", cand_query_dict['uvfitspath'])
+    print("calpath", cand_query_dict['calpath'])
+    print(start_mjd, flagant, flagchan)
+    print(candrow)
+
     cand = craco_cand.Cand(
         uvfits = cand_query_dict['uvfitspath'], 
         metafile = rundir.scheddir.metafile, # if there is nothing, it should give you None
         calfile = cand_query_dict['calpath'],
         # start_mjd = Time(rundir.scheddir.start_mjd, format="jd", scale="tai"),
-        start_mjd = start_mjd,
-        flagant = flagant, flagchan=flagchan,
+        start_mjd = start_mjd, flagant = flagant, flagchan=flagchan, pcbpath=pcbpath,
         **candrow,
     )
 
@@ -778,13 +790,14 @@ def small_src_click(std_clickdata, det_clickdata, wcsstr, cand_query_str):
         State("cand_flagchan", "value"),
         State("cand_flagant", "value"),
         State("cand_pad", "value"),
+        State("cand_pcbmask_switch", "value"),
     ],
     running = [
         (Output("craco_cand_large_plot_btn", "disabled"), True, False),
     ],
     prevent_initial_call=True,
 )
-def craco_cand_large_plot(nclick, cand_query_strings, flagchan, flagant, padding):
+def craco_cand_large_plot(nclick, cand_query_strings, flagchan, flagant, padding, pcbmask):
     # again move it to the top callback once we have a light version plan
     cand_query_dict = eval(cand_query_strings)
     candrow = {
@@ -829,6 +842,8 @@ def craco_cand_large_plot(nclick, cand_query_strings, flagchan, flagant, padding
     # try: fixuvfits.fix_length(cand_query_dict['uvfitspath'])
     except: pass
 
+    if pcbmask: pcbpath = cand_query_dict["pcbpath"]
+    else: pcbpath = None
 
     cand = craco_cand.Cand(
         uvfits = cand_query_dict['uvfitspath'], 
@@ -836,7 +851,7 @@ def craco_cand_large_plot(nclick, cand_query_strings, flagchan, flagant, padding
         calfile = cand_query_dict['calpath'],
         # start_mjd = Time(rundir.scheddir.start_mjd, format="jd", scale="tai"),
         start_mjd = start_mjd,
-        flagant = flagant, flagchan=flagchan,
+        flagant = flagant, flagchan=flagchan, pcbpath=pcbpath,
         **candrow,
     )
 
@@ -1171,7 +1186,7 @@ def _gui_tools_layout(cand_query_dict):
 
 ### final layout
 def layout(**cand_query_strings):
-    print(cand_query_strings)
+    # print(cand_query_strings)
 
     return html.Div([
         dcc.Location(id="cand_url", refresh=False),
@@ -1201,23 +1216,19 @@ def layout(**cand_query_strings):
             ], style={'marginBottom': '0.5em'}),
             dbc.Row(id="craco_icscas"),
             dbc.Row([
-                dbc.Col(html.H5("Candidate CRACO Data"), width=3),
+                dbc.Col(html.H5("Candidate CRACO Data"), width=3, align="center"),
                 dbc.Col(dbc.Button("Process", id="craco_cand_plot_btn", color="success"), width=3),
                 dbc.Col(dcc.Loading(id="craco_cand_plot_status", fullscreen=False)),
-            ], style={'marginBottom': '0.3em'}),
+            ], style={'marginBottom': '0.6em', "marginTop": "0.3em"}),
             dbc.Row([
-                dbc.Col(dbc.Row([
-                    dbc.Col(html.P("FANT"), width=3), 
-                    dbc.Col(dcc.Input(id="cand_flagant", type="text", placeholder="strrange"), width=6),
-                ]), width=3),
-                dbc.Col(dbc.Row([
-                    dbc.Col(html.P("FCHAN"), width=3), 
-                    dbc.Col(dcc.Input(id="cand_flagchan", type="text", placeholder="strrange"), width=6),
-                ]), width=3),
-                dbc.Col(dbc.Row([
-                    dbc.Col(html.P("PADDING"), width=3), 
-                    dbc.Col(dcc.Input(id="cand_pad", type="number", value=75, placeholder="number - default 50"), width=6),
-                ]), width=3),
+                dbc.Col("FANT", width=1, align="center"),
+                dbc.Col(dbc.Input(id="cand_flagant", type="text", placeholder="strrange"), width=1, align="center"),
+                dbc.Col("FCHAN", width=1, align="center"),
+                dbc.Col(dbc.Input(id="cand_flagchan", type="text", placeholder="strrange"), width=2, align="center"),
+                dbc.Col("PADDING", width=1, align="center"), 
+                dbc.Col(dbc.Input(id="cand_pad", type="number", value=75, placeholder="number - default 75"), width=1, align="center"),
+                dbc.Col("PCBMASK", width=1, align="center"),
+                dbc.Col(dbc.Switch(id="cand_pcbmask_switch", label=None, value=True), width=1, align="center"),
             ], style={'marginBottom': '0.3em'}),
             dbc.Row(id="craco_candidate_filterbank", style={'marginBottom': '0.5em'}),
             dbc.Row(id="craco_candidate_images", style={'marginBottom': '0.5em'}),

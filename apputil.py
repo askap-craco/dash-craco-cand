@@ -291,7 +291,7 @@ def find_file(
         if scanpath provided, it will ignore all remaining three parameters
         if none is provided, we will search for results scan
     """
-    assert filetype in ["cand_raw", "cand_cls", "cal", "uvfits", "ics", "cas", "meta"], "not an avialable file type..."
+    assert filetype in ["cand_raw", "cand_cls", "cal", "uvfits", "ics", "cas", "meta", "pcb"], "not an avialable file type..."
 
     default_dict = dict(
         sbid=None, beam=None, scan=None, tstart=None,
@@ -365,6 +365,11 @@ def find_file(
         if not _check_file(metafile): return None
         return metafile
 
+    if filetype == "pcb":
+        pcbfile = rundir.beam_pcb(beam)
+        if not _check_file(pcbfile): return None
+        return pcbfile
+
 def _check_file(filepath):
     if filepath is None: return False
     if os.path.exists(filepath): return True
@@ -405,6 +410,7 @@ def construct_candinfo(query_dict):
     query_dict["icspath"] = find_file("ics", query_dict)
     query_dict["caspath"] = find_file("cas", query_dict)
     query_dict["metapath"] = find_file("meta", query_dict)
+    query_dict["pcbpath"] = find_file("pcb", query_dict)
 
     return query_dict
 
