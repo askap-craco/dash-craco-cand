@@ -250,6 +250,7 @@ def mul_skyview_plot(nclick, radius, survey, inputs):
     inputs = eval(inputs)
     ra = float(inputs.get("ra")); dec = float(inputs.get("dec"))
     raerr = float(inputs.get("raerr")); decerr = float(inputs.get("decerr"))
+    radius = float(radius)
 
     message = "download failed..."
     try:
@@ -323,7 +324,14 @@ def mul_decam_plot(nclick, radius, survey, inputs):
         fig = mul_plot_decam_overlay(hdulst_small, ra, dec, raerr, decerr, )
         small_fig = html.Img(src=fig_to_uri(fig), style={"width": "100%"})
     except Exception as err:
-        small_fig = html.B(f"cannot plot small figure... {message}\n with error: {err}\n please check decam viewer: https://www.legacysurvey.org/viewer")
+        downurl = get_decam_url(ra, dec, radius, survey)
+        msg = [
+            html.P(f"cannot plot small figure... {message}"),
+            html.P(f"with error: {err}"),
+            html.P("please check decam viewer: https://www.legacysurvey.org/viewer"),
+            html.P(["OR ", html.A("CLICK FOR CUTOUT URL", href=downurl, target="_blank")])
+        ]
+        small_fig = html.B(msg)
 
     message = "download failed..."
     try:
@@ -332,7 +340,14 @@ def mul_decam_plot(nclick, radius, survey, inputs):
         fig = mul_plot_decam_overlay(hdulst_large, ra, dec, raerr, decerr, )
         large_fig = html.Img(src=fig_to_uri(fig), style={"width": "100%"})
     except Exception as err:
-        large_fig = html.B(f"cannot plot large figure... {message}\n with error: {err}\n please check decam viewer: https://www.legacysurvey.org/viewer")
+        downurl = get_decam_url(ra, dec, 2*radius, survey)
+        msg = [
+            html.P(f"cannot plot large figure... {message}"),
+            html.P(f"with error: {err}"),
+            html.P("please check decam viewer: https://www.legacysurvey.org/viewer"),
+            html.P(["OR ", html.A("CLICK FOR CUTOUT URL", href=downurl, target="_blank")])
+        ]
+        large_fig = html.B(msg)
 
     return small_fig, large_fig, "Done!"
 
@@ -363,6 +378,10 @@ def layout(**query):
                 dbc.Col(dbc.Input(value=30, id="mul_decam_radius_input"), width=2, align="center")
             ], style={'marginBottom': '1.0em', 'marginTop': '1.0em'}),
             *mul_decam_layout(),
+            dbc.Row(
+                dbc.Col("For more details, please check DECAM viewer at https://www.legacysurvey.org/viewer", align="center"), 
+                style={'marginBottom': '1.0em', 'marginTop': '0.5em'}
+            )
         ], style={'marginBottom': '1.0em', 'marginTop': '2.0em'},),
     ]
 
