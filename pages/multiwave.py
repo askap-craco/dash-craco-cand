@@ -129,13 +129,15 @@ def download_skyview(ra, dec, radius, survey):
     hdulists = SkyView.get_images(position=f'{ra} {dec}',survey=[survey], radius=radius*units.arcsec,)
     return hdulists[0]
 
-def get_decam_url(ra, dec, radius, survey, size=512):
+def get_decam_url(ra, dec, radius, survey, size=256):
     pixscale= 2 * radius / size
+    baseurl = "https://www.legacysurvey.org/viewer/cutout.fits"
     if pixscale < decam_allsurveys[survey]["res"]:
         pixscale = decam_allsurveys[survey]["res"]
         size = int(2 * radius / pixscale)
-    baseurl = "https://www.legacysurvey.org/viewer/cutout.fits"
-    query = f"ra={ra}&dec={dec}&layer={survey}&size={size}&pixscale={pixscale}"
+        query = f"ra={ra}&dec={dec}&layer={survey}&pixscale={pixscale}&size={size}"
+    else:
+        query = f"ra={ra}&dec={dec}&layer={survey}&pixscale={pixscale}"
     return f"{baseurl}?{query}"
 
 def download_decam(ra, dec, radius, survey, size=512):
