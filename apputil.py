@@ -12,6 +12,7 @@ import sqlite3
 from io import BytesIO
 import base64
 import glob
+import subprocess
 
 from craft import sigproc
 from craco.datadirs import DataDirs, SchedDir, ScanDir, RunDir, format_sbid
@@ -643,3 +644,38 @@ decam_allsurveys = {
     # "halpha": dict(res=0.06, ) # was not available during the development
     "vlass1.2": dict(res=0.06, ),
 }
+
+### this is for KEEP SBID
+def keep_sbid(sbid, comments, scan=None, dryrun=False):
+    sched = SchedDir(sbid)
+    nscans = len(sched.scans)
+    sizes = sched.get_size()
+    total_size = sum(sizes.values())
+
+    print(f'SBID {sbid} contains {nscans} scan(s) and total size {total_size}')
+
+    if comments == "": return "Please Provide Comments to Continue..."
+
+    keepfile = os.path.join(sched.sched_head_dir, 'KEEP')
+    if not dryrun:
+        with open(keepfile, 'w') as f:
+            f.write('talkto: GUI\n' + comments + '\n')
+        
+    #hostfile=os.path.join(sched.sched_head_dir
+    hostfile = os.environ['HOSTFILE']
+    if isinstance(scan, str):
+        list_of_tstarts = [i.split("/")[-1] for i in sched.scans]
+        if scan not in list_of_tstarts:
+            tstart_str = '\n'.join(list_of_tstarts)
+            return f"The requested scan {scan} not found in SBID.\n{tstart_str}"
+        fmsg = f'making scan - {scan} readonly'
+        local_scan_file = f'/data/craco/craco/SB{sbid:06d}/scans/??/{scan}'
+    else:   
+        local_scan_file = f'/data/craco/craco/SB{sbid:06d}'
+        fmsg = f"making SB{sbid} readonly"
+
+    cmd = f'mpirun -hostfile {hostfile} -map-by ppr:1:node find {local_scan_file} -type f -exec chmod a-w {{}} \; '
+    # print(cmd)
+    # print('Making uvfits files read only with ', cmd)
+    retcode = subprocess.call(cmd, shell=True)
+    return fmsg

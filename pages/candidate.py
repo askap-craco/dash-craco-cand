@@ -31,6 +31,7 @@ from astroquery.simbad import Simbad
 from apputil import (
     fig_to_uri, load_filterbank,
     construct_candinfo,
+    keep_sbid,
 )
 
 # from craco import craco_candidate
@@ -1036,13 +1037,13 @@ def _back_cand_btn(cand_query_strings, unique=True):
 ###### keep and rclone stuff here
 @callback(
     inputs = [
-        Input("craco_keep_btn", "n_clicks"),
-        State("craco_keep_option", "value"),
+        Input("craco_archive_btn", "n_clicks"),
+        State("craco_archive_option", "value"),
         State("archive_comment", "value"),
         State("cand_query_strings", "data"),
     ],
     output = [
-        Output("craco_keep_status", "children"),
+        Output("craco_archive_status", "children"),
     ],
     prevent_initial_call=True,
 )
@@ -1081,7 +1082,7 @@ def _rclone_scan(cand_query_dict, scan, comment):
     p = subprocess.run([archive_cmd], shell=True, capture_output=True, text=True, env=ecopy)
     return int(p.stdout.strip())
 
-def _make_archive_file(cand_query_dict, keepopt=1):
+def _make_archive_file(cand_query_dict, keepopt=1, dryrun=False):
     """
     the format of the archive file should be stored under 
     /CRACO/DATA_00/craco/SB0xxxxx/ARCHIVE
@@ -1093,15 +1094,17 @@ def _make_archive_file(cand_query_dict, keepopt=1):
     beam = cand_query_dict["beam"]
     archive_fname = f"{scheddir.sched_head_dir}/ARCHIVE"
     if not os.path.exists(archive_fname):
-        fp = open(archive_fname, "w")
-        fp.write("scan,tstart,beam\n")
-        fp.close()
-    fp = open(archive_fname, "a")
+        if not dryrun:
+            fp = open(archive_fname, "w")
+            fp.write("scan,tstart,beam\n")
+            fp.close()
+    if not dryrun:
+        fp = open(archive_fname, "a")
     scans = _check_archive_file(cand_query_dict, keepopt=keepopt)
     for scan in scans:
-        _write_scan(fp, scan, beam)
-    ### check if this scan are already there
-    fp.close()
+        if not dryrun: _write_scan(fp, scan, beam)
+        ### check if this scan are already there
+    if not dryrun: fp.close()
     return scans
 
 def __get_archive_scans(cand_query_dict, keepopt=1):
@@ -1132,7 +1135,10 @@ def _check_archive_file(cand_query_dict, keepopt=1):
     ### get a list of scans should be archived first
     scans = __get_archive_scans(cand_query_dict, keepopt=keepopt)
     ### check if these scans are in database
-    scankept_df = pd.read_csv(archive_fname)
+    if not os.path.exists(archive_fname):
+        scankept_df = pd.DataFrame(dict(scan=[], tstart=[], beam=[])) 
+    else:
+        scankept_df = pd.read_csv(archive_fname)
     return __check_df_scans(scankept_df, beam, scans)
 
 def _write_scan(fp, scan, beam):
@@ -1142,18 +1148,47 @@ def _write_scan(fp, scan, beam):
     scan, tstart = scan.split("/")
     fp.write(f"{scan},{tstart},{beam}\n")
 
-def _store_candidate(cand_query_dict):
+def _store_candidate(cand_query_dict, dryrun=False):
     scheddir = SchedDir(cand_query_dict["sbid"])
     cand_fname = f"{scheddir.sched_head_dir}/KEEP_CAND"
     if not os.path.exists(cand_fname):
-        fp = open(cand_fname, "w")
-        fp.write("scan,tstart,beam,dm,boxcwidth,lpix,mpix,totalsample,ra,dec\n")
-        fp.close()
+        if not dryrun:
+            fp = open(cand_fname, "w")
+            fp.write("scan,tstart,beam,dm,boxcwidth,lpix,mpix,totalsample,ra,dec\n")
+            fp.close()
     
-    fp = open(cand_fname, "a")
+    if not dryrun: fp = open(cand_fname, "a")
     d = cand_query_dict
-    fp.write(f"""{d["scan"]},{d["tstart"]},{d["beam"]},{d["dm"]},{d["boxcwidth"]},{d["lpix"]},{d["mpix"]},{d["totalsample"]},{d["ra"]},{d["dec"]}\n""")
-    fp.close()
+    if not dryrun:
+        fp.write(f"""{d["scan"]},{d["tstart"]},{d["beam"]},{d["dm"]},{d["boxcwidth"]},{d["lpix"]},{d["mpix"]},{d["totalsample"]},{d["ra"]},{d["dec"]}\n""")
+        fp.close()
+
+### for keep sbid
+# @callback(
+@app.long_callback(
+    inputs = [
+        Input("craco_keep_btn", "n_clicks"),
+        State("craco_keep_option", "value"),
+        State("keep_comment", "value"),
+        State("cand_query_strings", "data"),
+    ],
+    output = [
+        Output("craco_keep_status", "children"),
+    ],
+    prevent_initial_call=True,
+)
+def keep_candidate_data(nclick, optvalue, comment, cand_query_strings):
+    cand_query_dict = eval(cand_query_strings)
+    sbid = cand_query_dict["sbid"]
+    if optvalue == 1: # keep scan
+        scan = cand_query_dict['tstart']
+    else:
+        scan = None
+    try:
+        fmsg = keep_sbid(sbid=int(sbid), comments=comment, scan=scan, dryrun=False)
+    except:
+        fmsg = "something went wrong... kept failed..."
+    return (fmsg,)
 
 def _gui_tools_layout(cand_query_dict):
     linkqueries = []
@@ -1261,20 +1296,31 @@ def layout(**cand_query_strings):
             ##### layout for keep buttons
             html.Hr(),
             dbc.Row([
-                dbc.Col(dbc.Button("KEEP", id="craco_keep_btn", color="success"), width=1),
-                dbc.Col(dbc.Row([
-                    dbc.Col(html.P("comment"), width=3, align="center"),
-                    dbc.Col(dcc.Input(id="archive_comment", type="text", placeholder="FRB..."), width=2),
-                ]), align="center"),
+                dbc.Col(dbc.Button("KEEP FILES", id="craco_keep_btn", color="info"), width=2, align="center"),
+                dbc.Col("comments", width=1, align="center"),
+                dbc.Col(dbc.Input(id="keep_comment", type="text", placeholder="FRB..."), width=3, align="center"),
                 dbc.Col(dbc.RadioItems(
                     options=[
                         {"label": "scan", "value": 1},
                         {"label": "sbid", "value": 2},
                     ],
-                    value=1, id="craco_keep_option", inline=True,
+                    value=2, id="craco_keep_option", inline=True,
                  ),width=2, align="center"),
-                dbc.Col(dcc.Loading(id="craco_keep_status", fullscreen=False)),
-            ], style={'marginBottom': '1.5em'}),
+                 dbc.Col(dcc.Loading(id="craco_keep_status", fullscreen=False), align="center"),
+            ], style={'marginBottom': '1.5em', "marginTop": "0.5em"}),
+            dbc.Row([
+                dbc.Col(dbc.Button("ARCHIVE TO ACACIA", id="craco_archive_btn", color="info"), width=2, align="center"),
+                dbc.Col("comments", width=1, align="center"),
+                dbc.Col(dbc.Input(id="archive_comment", type="text", placeholder="FRB..."), width=3, align="center"),
+                dbc.Col(dbc.RadioItems(
+                    options=[
+                        {"label": "scan", "value": 1},
+                        {"label": "sbid", "value": 2},
+                    ],
+                    value=1, id="craco_archive_option", inline=True,
+                 ),width=2, align="center"),
+                dbc.Col(dcc.Loading(id="craco_archive_status", fullscreen=False), align="center"),
+            ], style={'marginBottom': '1.5em', "marginTop": "0.5em"}),
             html.Hr(),
             dbc.Row(html.H4("GUI Automatic Tools")),
             _gui_tools_layout(cand_query_strings)
