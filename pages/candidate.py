@@ -1186,8 +1186,8 @@ def keep_candidate_data(nclick, optvalue, comment, cand_query_strings):
         scan = None
     try:
         fmsg = keep_sbid(sbid=int(sbid), comments=comment, scan=scan, dryrun=False)
-    except:
-        fmsg = "something went wrong... kept failed..."
+    except Exception as error:
+        fmsg = f"something went wrong... kept failed...\nerror msg - {error}"
     return (fmsg,)
 
 def _gui_tools_layout(cand_query_dict):

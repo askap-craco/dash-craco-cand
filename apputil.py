@@ -649,11 +649,12 @@ decam_allsurveys = {
 def keep_sbid(sbid, comments, scan=None, dryrun=False):
     sched = SchedDir(sbid)
     nscans = len(sched.scans)
-    sizes = sched.get_size()
-    total_size = sum(sizes.values())
+    # sizes = sched.get_size()
+    # total_size = sum(sizes.values())
 
-    print(f'SBID {sbid} contains {nscans} scan(s) and total size {total_size}')
+    # print(f'SBID {sbid} contains {nscans} scan(s) and total size {total_size}')
 
+    if comments is None: comments = ""
     if comments == "": return "Please Provide Comments to Continue..."
 
     keepfile = os.path.join(sched.sched_head_dir, 'KEEP')
