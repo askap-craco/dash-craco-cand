@@ -362,6 +362,7 @@ def _dash_rect_region(x, y, radius):
 
 # cas/ics candidate related plotting
 @app.long_callback(
+# @callback(
     output = [
         Output("craco_icscas", "children"),
         Output("craco_icscas_plot_status", "children"),
@@ -386,12 +387,13 @@ def _dash_rect_region(x, y, radius):
 #     ],
 #     prevent_initial_call=True,
 # )
-def craco_icscas_plot(nclick, cand_query_strings):
+def craco_icspcb_plot(nclick, cand_query_strings):
     cand_query_dict = eval(cand_query_strings)
 
     ### check if ics/cas exists
     icspath = cand_query_dict["icspath"]
-    caspath = cand_query_dict["caspath"]
+    # caspath = cand_query_dict["caspath"]
+    pcbpath = cand_query_dict["pcbpath"]
     totalsample = cand_query_dict["totalsample"]
 
     if totalsample is None: return "totalsample need to be provided to proceed..."
@@ -412,22 +414,22 @@ def craco_icscas_plot(nclick, cand_query_strings):
     else:
         icsfigcol = dbc.Col(width=6, className="h-100")
 
-    if caspath is not None:
-        casdata, taxis, faxis = load_filterbank(caspath, totalsample-75, 150)
-        casfig = px.imshow(
-            casdata[:, 0, :].T, x=taxis, y=faxis, aspect="auto", origin="lower",
+    if pcbpath is not None:
+        pcbdata, taxis, faxis = load_filterbank(pcbpath, totalsample-75, 150)
+        pcbfig = px.imshow(
+            pcbdata[:, 0, :].T, x=taxis, y=faxis, aspect="auto", origin="lower",
         )
-        casfig.add_vline(
+        pcbfig.add_vline(
             x=totalsample, line_width=1, line_dash="dash", line_color="black",
         )
-        casfig.update_layout(title=dict(text="CAS", x=0.5, xanchor="center"))
-        casfigcol = dbc.Col(html.Div(dcc.Graph(
-            figure=casfig, id="cand_cas_interactive",
+        pcbfig.update_layout(title=dict(text="PCB", x=0.5, xanchor="center"))
+        pcbfigcol = dbc.Col(html.Div(dcc.Graph(
+            figure=pcbfig, id="cand_cas_interactive",
         )), width=6, className="h-100")
     else:
-        casfigcol = dbc.Col(width=6, className="h-100")
+        pcbfigcol = dbc.Col(width=6, className="h-100")
 
-    return dbc.Row([icsfigcol, casfigcol]), "Done..."
+    return dbc.Row([icsfigcol, pcbfigcol]), "Done..."
 
 
 ### fix uvfits code
@@ -483,8 +485,8 @@ def format_new_webpage(cand_query_str, ra, dec, x=None, y=None):
 
 
 # https://stackoverflow.com/a/75437616
-# @app.long_callback(
-@callback( # for debug purposes...
+@app.long_callback(
+# @callback( # for debug purposes...
     output=[
         Output("craco_candidate_filterbank", "children"),
         Output("craco_candidate_images", "children"),
@@ -966,13 +968,13 @@ def rescale_filterbank(heatmapfig, nclicks, slidervalue):
 )
 def printout_files(cand_query_strings):
     cand_query_dict = eval(cand_query_strings)
-    metarow = html.Tr([
-        html.Td(html.B("METAFILE")),
-        html.Td([
-            html.Abbr(cand_query_dict["metapath"], id="cand_meta_path"),
-            dcc.Clipboard(target_id="cand_meta_path", title="copy", style = {"display": "inline-block"})
-        ]),
-    ])
+    # metarow = html.Tr([
+    #     html.Td(html.B("METAFILE")),
+    #     html.Td([
+    #         html.Abbr(cand_query_dict["metapath"], id="cand_meta_path"),
+    #         dcc.Clipboard(target_id="cand_meta_path", title="copy", style = {"display": "inline-block"})
+    #     ]),
+    # ])
     uvfitsrow = html.Tr([
         html.Td(html.B("UVFITS")),
         html.Td([
@@ -985,6 +987,20 @@ def printout_files(cand_query_strings):
         html.Td([
             html.Abbr(cand_query_dict["calpath"], id="cand_cal_path"),
             dcc.Clipboard(target_id="cand_cal_path", title="copy", style = {"display": "inline-block"})
+        ]),
+    ])
+    icsrow = html.Tr([
+        html.Td(html.B("ICS")),
+        html.Td([
+            html.Abbr(cand_query_dict["icspath"], id="cand_ics_path"),
+            dcc.Clipboard(target_id="cand_ics_path", title="copy", style = {"display": "inline-block"})
+        ]),
+    ])
+    pcbrow = html.Tr([
+        html.Td(html.B("PCB")),
+        html.Td([
+            html.Abbr(cand_query_dict["pcbpath"], id="cand_pcb_path"),
+            dcc.Clipboard(target_id="cand_pcb_path", title="copy", style = {"display": "inline-block"})
         ]),
     ])
     clustrow = html.Tr([
@@ -1002,7 +1018,10 @@ def printout_files(cand_query_strings):
         ]),
     ])
     return dbc.Col(dbc.Table(html.Tbody([
-        metarow, uvfitsrow, calrow, clustrow, unclustrow
+        # metarow, 
+        uvfitsrow, calrow, 
+        icsrow, pcbrow,
+        clustrow, unclustrow,
     ]), borderless=True, color="light"), width=10)
 
 def _back_cand_btn(cand_query_strings, unique=True):
@@ -1237,7 +1256,7 @@ def layout(**cand_query_strings):
                 dbc.Col(html.Div(id="cand_cross_table_div"), width=12), # cross check from PSRCAT, RACS, SIMBAD
             ], style={'marginBottom': '0.5em'}),
             dbc.Row([
-                dbc.Col(html.H5("ICS/CAS"), width=3),
+                dbc.Col(html.H5("ICS/PCB"), width=3),
                 dbc.Col(dbc.Button("Process", id="craco_icscas_plot_btn", color="success"), width=3),
                 dbc.Col(dcc.Loading(id="craco_icscas_plot_status", fullscreen=False)),
             ], style={'marginBottom': '0.5em'}),
