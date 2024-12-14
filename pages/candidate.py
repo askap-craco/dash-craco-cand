@@ -483,8 +483,8 @@ def format_new_webpage(cand_query_str, ra, dec, x=None, y=None):
 
 
 # https://stackoverflow.com/a/75437616
-@app.long_callback(
-# @callback( # for debug purposes...
+# @app.long_callback(
+@callback( # for debug purposes...
     output=[
         Output("craco_candidate_filterbank", "children"),
         Output("craco_candidate_images", "children"),

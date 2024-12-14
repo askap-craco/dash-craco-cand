@@ -15,7 +15,7 @@ import glob
 import subprocess
 
 from craft import sigproc
-from craco.datadirs import DataDirs, SchedDir, ScanDir, RunDir, format_sbid
+from craco.datadirs import DataDirs, SchedDir, ScanDir, RunDir, CandDir, format_sbid
 
 from astropy.coordinates import SkyCoord
 from astropy import units
@@ -302,6 +302,7 @@ def find_file(
     sbid = query_dict["sbid"]; beam = query_dict["beam"]
     scan = query_dict["scan"]; tstart = query_dict["tstart"]
     runname = query_dict["runname"]; scanpath = query_dict["scanpath"]
+    totalsample = query_dict["totalsample"]
 
     ### note scan path from scan/tstart/runname..
 
@@ -338,8 +339,19 @@ def find_file(
     ### for uvfits file
     if filetype == "uvfits":
         uvfitsfile = rundir.scandir.beam_uvfits_path(beam)
-        if not _check_file(uvfitsfile): return None
-        return uvfitsfile
+        if _check_file(uvfitsfile): return uvfitsfile
+        ### now check if it is a snippet...
+        if totalsample is None: return None
+        try: 
+            totalsample = int(totalsample)
+            iblk = totalsample // 256
+            canddir = CandDir(sbid=sbid, beam=beam, iblk=iblk, scan=scantime)
+            uvfitsfile = canddir.cand_snippet_uvfits_path
+        except:
+            return None
+    
+        if _check_file(uvfitsfile): return uvfitsfile
+        return None
 
     if filetype == "ics":
         icsfile = rundir.scandir.beam_ics_path(beam)
