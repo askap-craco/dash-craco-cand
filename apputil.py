@@ -296,7 +296,7 @@ def find_file(
 
     default_dict = dict(
         sbid=None, beam=None, scan=None, tstart=None,
-        runname=None, scanpath=None
+        runname=None, scanpath=None, totalsample=None,
     )
     query_dict = _update_default_dict(query_dict, default_dict)
     sbid = query_dict["sbid"]; beam = query_dict["beam"]
@@ -402,7 +402,7 @@ def _extract_beam_candfile(candfile):
     candfile = candfile.split("/")[-1]
     candfile = candfile.replace(".uniq", "")
     try:
-        return int(candfile[-6:-4])
+        return int(candfile[-2:])
     except:
         return None
 
@@ -440,7 +440,7 @@ def construct_beaminfo(query_dict):
         query_dict["fname"] = find_file("cand_cls", query_dict) if query_dict["unique"] else find_file("cand_raw", query_dict)
 
     # print(query_dict)
-    fname = query_dict["fname"].replace(".csv", "")
+    fname = query_dict["fname"].replace(".csv", "").replace(".txt", "")
     # fnamesplit = fname.split("/")
     ### it will update all other information based on the fname
     ddir = DataDirs()
