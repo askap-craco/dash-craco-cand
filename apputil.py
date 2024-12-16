@@ -345,8 +345,10 @@ def find_file(
         try: 
             totalsample = int(totalsample)
             iblk = totalsample // 256
-            canddir = CandDir(sbid=sbid, beam=beam, iblk=iblk, scan=scantime)
-            uvfitsfile = canddir.cand_snippet_uvfits_path
+            for padding_factor in [-1, 0, 1]:
+                canddir = CandDir(sbid=sbid, beam=beam, iblk=iblk+padding_factor, scan=scantime)
+                uvfitsfile = canddir.cand_snippet_uvfits_path
+                if _check_file(uvfitsfile): return uvfitsfile
         except:
             return None
     
