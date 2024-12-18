@@ -111,11 +111,11 @@ def loc_construct_info(nclick, sbid, scan, tstart, beam, runname, dm, boxcwidth,
     return rainvalid, decinvalid, fileinfo, job_layout(), cand_dict.__str__()
 
 ### functions for make uvfits snippet...
-def find_field_snippet_range(uvpath, length, tpulse):
+def find_field_snippet_range(length, tpulse, uvnsamp, uvtstart=0, ):
+    ### for realtime snippet
+    tpulse = tpulse - uvtstart
+    #######################
     idxs, idxe = tpulse - length // 2, tpulse + length // 2
-    uvsource = uvfits.open(uvpath)
-    uvnsamp = uvsource.nsamps
-    uvsource.close()
 
     if idxs < 0: idxs = 0; idxe = length
     if idxe > uvnsamp: idxe = uvnsamp; idxs = max(0, uvnsamp - length)
@@ -177,8 +177,15 @@ def job_construct_info(
     boxcwidth = int(cand_query.get("boxcwidth"))
     dm = int(float(cand_query.get("dm")))
 
-    fidxs, fidxe = find_field_snippet_range(uvpath, length, tpulse)
-    bidxs, bidxe = tpulse - boxcwidth, tpulse
+    uvsource = uvfits.open(uvpath)
+    uvnsamp = uvsource.nsamps
+    uvtstart = uvsource.header.get("SMPSTRT", default=0)
+    uvsource.close()
+
+    tpulse_ = tpulse - uvtstart
+
+    fidxs, fidxe = find_field_snippet_range(length, tpulse_, uvnsamp, )
+    bidxs, bidxe = tpulse_ - boxcwidth, tpulse_
 
     ### get foutname and boutname here...
     uvfname = uvpath.split("/")[-1]
