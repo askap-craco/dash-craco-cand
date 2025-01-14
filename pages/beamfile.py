@@ -26,6 +26,7 @@ dash.register_page(__name__, path="/beamfile", title="CRACO File Loader")
 def _is_headdir_beamfolder(path):
     folder = path.split("/")[-1]
     if re.match(r"beam\d{2}", folder): return True
+    if re.match(r"nodes", folder): return True
     return False
 
 def _get_result_scans(scans):
@@ -72,9 +73,12 @@ def load_scan4sbid(inputsbid):
     scheddir = SchedDir(sbid)
     scanlst = []
     for scan in scheddir.scans:
-        scandir = ScanDir(sbid, scan)
-        for run in scandir.runs:
-            scanlst.append(f"{scan}/{run}")
+        try: 
+            scandir = ScanDir(sbid, scan)
+            for run in scandir.runs:
+                scanlst.append(f"{scan}/{run}")
+        except:
+            continue
 
     scan_options, defaultscan = _workout_uniq_scans(scheddir.sched_head_dir, scanlst)
     if scan_options:
