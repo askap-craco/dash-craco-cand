@@ -31,7 +31,7 @@ from astroquery.simbad import Simbad
 from apputil import (
     fig_to_uri, load_filterbank,
     construct_candinfo,
-    keep_sbid,
+    keep_sbid, keep_uvfits_snippet,
 )
 
 # from craco import craco_candidate
@@ -1209,6 +1209,24 @@ def keep_candidate_data(nclick, optvalue, comment, cand_query_strings):
         fmsg = f"something went wrong... kept failed...\nerror msg - {error}"
     return (fmsg,)
 
+### for keep uvfits snippet
+# @callback(
+@app.long_callback(
+    inputs = [
+        Input("craco_keep_snippet_btn", "n_clicks"),
+        State("keep_snippet_comment", "value"),
+        State("cand_query_strings", "data"),
+    ],
+    output = [
+        Output("craco_keep_snippet_status", "children"),
+    ],
+    prevent_initial_call=True,
+)
+def keep_candidate_snippet_data(nclick, comment, cand_query_strings):
+    cand_query_dict = eval(cand_query_strings)
+    fmsg = keep_uvfits_snippet(cand_query_dict["uvfitspath"], comments=comment)
+    return (fmsg,)
+
 def _gui_tools_layout(cand_query_dict):
     linkqueries = []
     for k in ["sbid", "scan", "tstart", "beam", "runname", "dm", "boxcwidth", "totalsample", "ra", "dec"]:
@@ -1314,6 +1332,12 @@ def layout(**cand_query_strings):
             ]), style={'marginBottom': '0.5em'}),
             ##### layout for keep buttons
             html.Hr(),
+            dbc.Row([
+                dbc.Col(dbc.Button("KEEP SNIPPET", id="craco_keep_snippet_btn", color="info"), width=2, align="center"),
+                dbc.Col("comments", width=1, align="center"),
+                dbc.Col(dbc.Input(id="keep_snippet_comment", type="text", placeholder="FRB..."), width=3, align="center"),
+                dbc.Col(dcc.Loading(id="craco_keep_snippet_status", fullscreen=False), align="center")
+            ], style={'marginBottom': '1.5em', "marginTop": "0.5em"}),
             dbc.Row([
                 dbc.Col(dbc.Button("KEEP FILES", id="craco_keep_btn", color="info"), width=2, align="center"),
                 dbc.Col("comments", width=1, align="center"),

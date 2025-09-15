@@ -13,6 +13,7 @@ from io import BytesIO
 import base64
 import glob
 import subprocess
+import datetime
 
 from craft import sigproc
 from craco.datadirs import DataDirs, SchedDir, ScanDir, RunDir, CandDir, format_sbid
@@ -694,3 +695,21 @@ def keep_sbid(sbid, comments, scan=None, dryrun=False):
     # print('Making uvfits files read only with ', cmd)
     retcode = subprocess.call(cmd, shell=True)
     return fmsg
+
+### for keep single uvfits snippet
+def keep_uvfits_snippet(uvfitspath, comments=None):
+    if "candidate.uvfits" not in uvfitspath:
+        return "not a uvfits snippet, please use `KEEP FILES` button instead"
+    allfiles = glob.glob(f"{uvfitspath}*") # add other files, such as those tables...
+    candfolder = "/".join(uvfitspath.split("/")[:-1])
+    with open(f"{candfolder}/KEEP", "a") as fp:
+        tnow = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        if comments is not None:
+            fp.write(f"{tnow} - {comments}\n")
+        else:
+            fp.write(f"{tnow} - keep this snippet\n")
+
+    for f in allfiles:
+        cmd = f"chmod a-w {f}"
+        retcode = subprocess.call(cmd, shell=True)
+    return f"making {len(allfiles)} files readonly..."
