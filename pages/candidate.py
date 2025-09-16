@@ -1069,6 +1069,10 @@ def _back_cand_btn(cand_query_strings, unique=True):
 # def keep_files(nclick, optvalue, cand_query_strings):
 def archive_candidate_data(nclick, optvalue, comment, cand_query_strings):
     cand_query_dict = eval(cand_query_strings)
+    uvfitspath = cand_query_dict["uvfitspath"]
+    if "candidate.uvfits" in uvfitspath:
+        pid = _rclone_snippet(cand_query_dict, comment)
+        return "snippet archived successfully..."
     ### push candidate to candidate file
     _store_candidate(cand_query_dict)
     ### update archive scans
@@ -1097,6 +1101,27 @@ def _rclone_scan(cand_query_dict, scan, comment):
         comment = "NO COMMENT..."
 
     archive_cmd = f"tsp {cmd} {sbid} {scan} {beam} {node} '{comment}'"
+
+    p = subprocess.run([archive_cmd], shell=True, capture_output=True, text=True, env=ecopy)
+    return int(p.stdout.strip())
+
+# for archiving snippet
+def _rclone_snippet(cand_query_dict, comments):
+    ecopy = os.environ.copy()
+    ecopy['TS_SOCKET'] = "/data/craco/craco/tmpdir/queues/archive"
+
+    uvfitspath = cand_query_dict["uvfitspath"]
+    ### this means that you have done archive already...
+    parentdir = "/".join(uvfitspath.split("/")[:-1])
+    if os.path.exists(f"{parentdir}/ARCHIVE"):
+        return
+    
+    cmd = "/CRACO/SOFTWARE/craco/craftop/softwares/craco_run/archive_snippet.sh"
+
+    if comment is None:
+        comment = "NO COMMENT..."
+
+    archive_cmd = f"tsp {cmd} {uvfitspath} '{comments}'"
 
     p = subprocess.run([archive_cmd], shell=True, capture_output=True, text=True, env=ecopy)
     return int(p.stdout.strip())
