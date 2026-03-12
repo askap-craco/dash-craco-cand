@@ -25,8 +25,11 @@ def get_allsbid_fitsfile(sbid, beam):
     scheddir = SchedDir(sbid=sbid)
     alluvfits = []
     for scan in scheddir.scans:
-        scandir = ScanDir(sbid=sbid, scan=scan)
-        alluvfits.append(scandir.beam_uvfits_path(beam))
+        try: # some scan has some issue...
+            scandir = ScanDir(sbid=sbid, scan=scan)
+            alluvfits.append(scandir.beam_uvfits_path(beam))
+        except:
+            continue
     return alluvfits
         
 
