@@ -1090,7 +1090,7 @@ def archive_candidate_data(nclick, optvalue, comment, cand_query_strings):
 # functions for archiving files
 def _rclone_scan(cand_query_dict, scan, comment):
     ecopy = os.environ.copy()
-    ecopy['TS_SOCKET'] = "/data/craco/craco/tmpdir/queues/archive"
+    ecopy['TS_SOCKET'] = "/data/craco/craco/tmpdir/queues/archive_snippet"
 
     sbid = cand_query_dict["sbid"]
     # scan = f"""{cand_query_dict["scan"]}/{cand_query_dict["tstart"]}"""
@@ -1109,7 +1109,7 @@ def _rclone_scan(cand_query_dict, scan, comment):
 # for archiving snippet
 def _rclone_snippet(cand_query_dict, comment):
     ecopy = os.environ.copy()
-    ecopy['TS_SOCKET'] = "/data/craco/craco/tmpdir/queues/archive"
+    ecopy['TS_SOCKET'] = "/data/craco/craco/tmpdir/queues/archive_snippet"
 
     uvfitspath = cand_query_dict["uvfitspath"]
     ### this means that you have done archive already...
