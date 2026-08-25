@@ -167,8 +167,8 @@ def mul_plot_overlay(hdulst, ra, dec, raerr=None, decerr=None, ):
 
     ax.coords[0].set_axislabel("Right Ascension (J2000)")
     ax.coords[1].set_axislabel("Declination (J2000)")
-    ax.coords[0].set_ticklabel_position("top")
-    ax.coords[1].set_ticklabel_position("right")
+    ax.coords[0].set_ticklabel_position("b")
+    ax.coords[1].set_ticklabel_position("l")
 
     return fig
 
@@ -218,8 +218,8 @@ def mul_plot_decam_overlay(hdulst, ra, dec, raerr=None, decerr=None, ):
 
     ax.coords[0].set_axislabel("Right Ascension (J2000)")
     ax.coords[1].set_axislabel("Declination (J2000)")
-    ax.coords[0].set_ticklabel_position("top")
-    ax.coords[1].set_ticklabel_position("right")
+    ax.coords[0].set_ticklabel_position("t")
+    ax.coords[1].set_ticklabel_position("r")
 
     ax.text(
         0.05, 0.95, plotband, color="cyan", transform=ax.transAxes,
@@ -388,4 +388,4 @@ def layout(**query):
     ]
 
 
-# example link - http://localhost:8025/multiwave?ra=05:34:11.56&raerr=0.786&dec=-59:40:25.086&decerr=0.581
+# example link - http://localhost:8025/multiwave?ra=22:50:17.615&raerr=0.534&dec=-33:50:43.925&decerr=0.594
