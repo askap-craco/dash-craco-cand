@@ -283,7 +283,7 @@ def mul_decam_layout():
     input_row = dbc.Row([
         dbc.Col(html.B("Please select avaiable survey on DECAM site"), width=6, align="center"),
         dbc.Col(html.B("Survey"), width=2, align="center"),
-        dbc.Col(dbc.Select(id="mul_decam_survey_input", options=selectsurvey, value="ls-dr10"), width=4, align="center"),
+        dbc.Col(dbc.Select(id="mul_decam_survey_input", options=selectsurvey, value="ls-dr11"), width=4, align="center"),
     ], style={'marginBottom': '0.5em'})
 
     display_row = dbc.Row([
