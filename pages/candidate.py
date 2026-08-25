@@ -274,9 +274,9 @@ def _match_simbad(candcoord):
 
     if sim_query:
         sim_df = sim_query.to_pandas()[["main_id", "ra", "dec"]].copy()
-        sep = candcoord.separation(SkyCoord(sim_df["ra"], sim_df["dec"], unit=(units.hourangle, units.degree)))
-        sim_df["sep"] = sep.value * 3600
-
+        sep = candcoord.separation(SkyCoord(sim_df["ra"], sim_df["dec"], unit=(units.degree, units.degree)))
+        sim_df["sep"] = sep.to("degree").value * 3600
+        
         sim_df = sim_df.sort_values("sep")
         return sim_df
     return pd.DataFrame({"main_id":[], "ra": [], "dec": [], "sep": []})
