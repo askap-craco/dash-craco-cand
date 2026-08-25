@@ -73,6 +73,7 @@ def loc_construct_info(nclick, sbid, scan, tstart, beam, runname, dm, boxcwidth,
     # print(cand_dict)
     ### print out information like uvfitspath, calibration path, and wd
     casabins = {
+        "wsclean": "wsclean",
         "casa 5.4.1": "/CRACO/SOFTWARE/craco/craftop/softwares/casa-release-5.4.1-31.el7/bin/casa",
         "casa 6.3.0": "/CRACO/SOFTWARE/craco/craftop/softwares/casa-6.3.0-48/bin/casa"
     }
@@ -104,7 +105,7 @@ def loc_construct_info(nclick, sbid, scan, tstart, beam, runname, dm, boxcwidth,
                 dbc.Col(
                     dbc.Select(
                         options=[{"label": casav, "value": casapath} for casav, casapath in casabins.items()],
-                        id = "loc_casa_path", value=casabins["casa 5.4.1"],
+                        id = "loc_casa_path", value=casabins["wsclean"],
                     ), width=6, align="center"),
             ]),
         ], style={'marginBottom': '2.0em'}),
@@ -162,16 +163,16 @@ def snippet_command(
         State("loc_casa_path", "value"),
         State("loc_snippet_length_input", "value"),
         State("loc_snippet_extra_cmd", "value"),
+        State("loc_rfi_switch", "value"),
     ],
     prevent_initial_call = True,
 )
 def job_construct_info(
-    nclick, cand_query_str, workdir, casapath, length, extra
+    nclick, cand_query_str, workdir, casapath, length, extra, rfi_flag
 ):
-    print("Here is the number of the click...", nclick)
     if nclick is None: raise PreventUpdate
     cand_query = eval(cand_query_str)
-    print(cand_query)
+    # print(cand_query)
 
     uvpath = cand_query.get("uvfitspath")
     calpath = cand_query.get("calpath")
@@ -209,29 +210,82 @@ def job_construct_info(
     cand_query["boutname"] = boutname
 
     ### form a list of commands...
-    cmds = [
-        "#!/bin/bash\n",
-        "### cd to the correct work directory",
-        f"cd {workdir}",
-        "\n### activate craco environment",
-        "source /home/craftop/.conda/.remove_conda.sh",
-        "source /home/craftop/.conda/.activate_conda.sh",
-        "conda activate craco", 
-        "\n### fix uvfits", f"`which fixuvfits` {uvpath}",
-        "\n### make uvfits snippet", fcmd, bcmd,
-        "\n### make casa images",
-        f"{casapath} --log2term --nologger -c `which casa_quick_clean.py` {workdir}/{foutname} {workdir} f t",
-        f"{casapath} --log2term --nologger -c `which casa_quick_clean.py` {workdir}/{boutname} {workdir} f t",
-        "\n### copy fits file to the work directory...",
-        f"cp {workdir}/clean/*t{fidxs}_{fidxe}*/*.image.fits {workdir}/field.image.fits",
-        f"cp {workdir}/clean/*t{bidxs}_{bidxe}*/*.image.fits {workdir}/burst.image.fits",
-        "\n### run source finder",
-        f"`which source_find.py` -fits {workdir}/field.image.fits",
-        f"`which source_find.py` -fits {workdir}/burst.image.fits",
-        "\n###TODO: ADD CROSSMATCHING STEPS",
-        f"`which localise_source.py` --fieldfpath {workdir}/field.image.fits --burstfpath {workdir}/burst.image.fits  --ra {cand_query['ra']} --dec {cand_query['dec']} --workdir {workdir}",
-        f"`which slack_post_localisation.py` -workdir {workdir} -channel {SLACK_CHANNEL}"
-    ]
+    imagingsoft = os.path.basename(casapath)
+    if imagingsoft.startswith("casa"):
+        cmds = [
+            "#!/bin/bash\n",
+            "### cd to the correct work directory",
+            f"cd {workdir}",
+            "\n### activate craco environment",
+            "source /home/craftop/.conda/.remove_conda.sh",
+            "source /home/craftop/.conda/.activate_conda.sh",
+            "conda activate craco", 
+            "\n### fix uvfits", f"`which fixuvfits` {uvpath}",
+            "\n### make uvfits snippet", fcmd, bcmd,
+        ]
+
+        if rfi_flag:
+            cmds += [
+                "\n### make casa images",
+                f"{casapath} --log2term --nologger -c `which casa_quick_clean.py` {workdir}/{foutname} {workdir} t t",
+                f"{casapath} --log2term --nologger -c `which casa_quick_clean.py` {workdir}/{boutname} {workdir} t t",
+            ]
+        else:
+            cmds += [
+                "\n### make casa images",
+                f"{casapath} --log2term --nologger -c `which casa_quick_clean.py` {workdir}/{foutname} {workdir} f t",
+                f"{casapath} --log2term --nologger -c `which casa_quick_clean.py` {workdir}/{boutname} {workdir} f t",
+            ]
+
+        cmds += [
+            "\n### copy fits file to the work directory...",
+            f"cp {workdir}/clean/*t{fidxs}_{fidxe}*/*.image.fits {workdir}/field.image.fits",
+            f"cp {workdir}/clean/*t{bidxs}_{bidxe}*/*.image.fits {workdir}/burst.image.fits",
+            "\n### run source finder",
+            f"`which source_find.py` -fits {workdir}/field.image.fits",
+            f"`which source_find.py` -fits {workdir}/burst.image.fits",
+            "\n###TODO: ADD CROSSMATCHING STEPS",
+            f"`which localise_source.py` --fieldfpath {workdir}/field.image.fits --burstfpath {workdir}/burst.image.fits  --ra {cand_query['ra']} --dec {cand_query['dec']} --workdir {workdir}",
+            f"`which slack_post_localisation.py` -workdir {workdir} -channel {SLACK_CHANNEL}"
+        ]
+    else:
+        cmds = [
+            "#!/bin/bash\n",
+            "### cd to the correct work directory",
+            f"cd {workdir}",
+            "\n### activate craco environment",
+            "source /home/craftop/.conda/.remove_conda.sh",
+            "source /home/craftop/.conda/.activate_conda.sh",
+            "conda activate craco", 
+            "\n### fix uvfits", f"`which fixuvfits` {uvpath}",
+            "\n### make uvfits snippet", fcmd, bcmd,
+            ######################################################
+            "\n### export uvfits to measurement sets",
+            f"`which export_uvfits_to_ms.py` --infits {workdir}/{foutname}",
+            f"`which export_uvfits_to_ms.py` --infits {workdir}/{boutname}",
+        ]
+
+        if rfi_flag:
+            cmds += [
+                "\n### remove RFI",
+                f"`which flag_craco_snippet_rfi.py` --fieldms {workdir}/{foutname.rstrip('.uvfits')}.ms --burstms {workdir}/{boutname.rstrip('.uvfits')}.ms",
+            ]
+
+        cmds += [
+            "\n### make wsclean images",
+            f"`which wsclean_quick_clean.sh` -ms {workdir}/{foutname.rstrip('.uvfits')}.ms",
+            f"`which wsclean_quick_clean.sh` -ms {workdir}/{boutname.rstrip('.uvfits')}.ms",
+            ######################################################
+            "\n### copy fits file to the work directory...",
+            f"cp {workdir}/image/*t{fidxs}_{fidxe}*-image.fits {workdir}/field.image.fits",
+            f"cp {workdir}/image/*t{bidxs}_{bidxe}*-image.fits {workdir}/burst.image.fits",
+            "\n### run source finder",
+            f"`which source_find.py` -fits {workdir}/field.image.fits",
+            f"`which source_find.py` -fits {workdir}/burst.image.fits",
+            "\n###TODO: ADD CROSSMATCHING STEPS",
+            f"`which localise_source.py` --fieldfpath {workdir}/field.image.fits --burstfpath {workdir}/burst.image.fits  --ra {cand_query['ra']} --dec {cand_query['dec']} --workdir {workdir}",
+            f"`which slack_post_localisation.py` -workdir {workdir} -channel {SLACK_CHANNEL}"
+        ]
     
     return job_outputs(cmds), exe_layout(), cand_query.__str__()
 
@@ -326,7 +380,7 @@ def file_outputs():
     return dbc.Container([
         dbc.Row([
             dbc.Col(html.H5("File Information"), width=2, align="center",),
-            dbc.Col(dbc.Button("Verify Candidate Information", color="success", id="loc_verify_btn"), width=3, align="center", ),
+            dbc.Col(dbc.Button("Verify Candidate Info", color="success", id="loc_verify_btn"), width=3, align="center", ),
             dbc.Col("Field Image Length (samples)", width=3, align="center"),
             dbc.Col(dbc.Input(id="loc_snippet_length_input", value=3000, type='number'), width=2),
         ], style={'marginBottom': '1.0em', 'marginTop': '1.0em'}),
@@ -336,9 +390,11 @@ def job_layout():
     return [
         dbc.Row([
             dbc.Col(html.H5("Job Information"), width=2, align="center",),
-            dbc.Col(dbc.Button("Verify File Information", color="success", id="loc_job_btn"), width=3, align="center", ),
+            dbc.Col(dbc.Button("Verify File Info", color="success", id="loc_job_btn"), width=2, align="center", ),
             dbc.Col("extra command", width=2, align="center"),
-            dbc.Col(dbc.Input(placeholder="extra command for uvfits_extract.py", id="loc_snippet_extra_cmd", value=""), width=4),
+            dbc.Col(dbc.Input(placeholder="extra command for uvfits_extract.py", id="loc_snippet_extra_cmd", value=""), width=2),
+            dbc.Col(html.B("RFI"), width=1, align="center"),
+            dbc.Col(dbc.Switch(id="loc_rfi_switch", label=None, value=True), width=1, align="center"),
         ]),
         dbc.Container(id="loc_job_info", style={'marginBottom': '1.0em', 'marginTop': '1.0em'})
     ]
