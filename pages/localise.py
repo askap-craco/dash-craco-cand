@@ -8,6 +8,8 @@ from dash.exceptions import PreventUpdate
 import dash
 import plotly.express as px
 
+import numpy as np
+
 from apputil import construct_candinfo
 
 from astropy.coordinates import SkyCoord, Angle
