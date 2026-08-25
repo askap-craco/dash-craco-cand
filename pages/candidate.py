@@ -273,13 +273,13 @@ def _match_simbad(candcoord):
         return pd.DataFrame({"NO_INTERNET": []})
 
     if sim_query:
-        sim_df = sim_query.to_pandas()[["MAIN_ID", "RA", "DEC"]].copy()
-        sep = candcoord.separation(SkyCoord(sim_df["RA"], sim_df["DEC"], unit=(units.hourangle, units.degree)))
+        sim_df = sim_query.to_pandas()[["main_id", "ra", "dec"]].copy()
+        sep = candcoord.separation(SkyCoord(sim_df["ra"], sim_df["dec"], unit=(units.hourangle, units.degree)))
         sim_df["sep"] = sep.value * 3600
 
         sim_df = sim_df.sort_values("sep")
         return sim_df
-    return pd.DataFrame({"MAIN_ID":[], "RA": [], "DEC": [], "sep": []})
+    return pd.DataFrame({"main_id":[], "ra": [], "dec": [], "sep": []})
 
 def _atnf_psrcat_url(ra, dec, radius=0.017):
     return f"https://www.atnf.csiro.au/research/pulsar/psrcat/proc_form.php?version=1.70&Jname=Jname&Name=Name&P0=P0&DM=DM&W50=W50&S400=S400&S1400=S1400&startUserDefined=true&c1_val=&c2_val=&c3_val=&c4_val=&sort_attr=jname&sort_order=asc&condition=&pulsar_names=&ephemeris=short&coords_unit=rajd%2Fdecjd&radius={radius}&coords_1={ra}&coords_2={dec}&raddist=raddist&style=Long+with+last+digit+error&no_value=*&fsize=3&x_axis=&x_scale=linear&y_axis=&y_scale=linear&state=query&table_bottom.x=66&table_bottom.y=13"
