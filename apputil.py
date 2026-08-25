@@ -653,7 +653,9 @@ skyview_allsurveys = {'Allbands:GOODS/HDF/CDF': ['GOODS: Chandra ACIS HB',
                      'BAT SNR 150-195']}
 
 decam_allsurveys = {
+    "ls-dr11": dict(res=0.06, ),
     "ls-dr10": dict(res=0.06, ),
+    "ls-dr9": dict(res=0.06, ),
     "decaps2": dict(res=0.06, ),
     "galex": dict(res=0.06, ),
     # "halpha": dict(res=0.06, ) # was not available during the development
